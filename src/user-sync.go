@@ -17,7 +17,7 @@ type User struct {
 	comparedResult         *string
 }
 
-// user-sync "root:my-secret-pw@tcp(192.168.99.100:13306)/dba" "root:my-secret-pw@tcp(192.168.99.100:13306)/dbb"
+// user-sync "root:mypw@tcp(localhost:13306)/dba" "root:mypw@tcp(localhost:13306)/dbb"
 func main() {
 	if len(os.Args) != 3 {
 		fmt.Println("Usage: ./user-sync dataSourceName1 dataSourceName2\n" +
@@ -125,9 +125,8 @@ func printMap(users map[string]*User) {
 
 func getDb(dataSourceName string) *sql.DB {
 	db, err := sql.Open("mysql", dataSourceName)
-	if err != nil {
-		log.Fatal(err)
-	}
+	checkErr(err)
+
 	return db
 }
 
@@ -135,19 +134,13 @@ func insertUser(db *sql.DB, user *User) int {
 	stmt, err := db.Prepare("insert into tr_f_user(" +
 		"user_id, mobile, openid, merchant_id, create_time, effective) " +
 		"values(?, ?, ?, ?, ?, ?)")
-	if err != nil {
-		log.Fatal(err)
-	}
+	checkErr(err)
 
 	res, err := stmt.Exec(user.userId, user.mobile, user.openid,
 		user.merchantId, user.createTime, user.effective)
-	if err != nil {
-		log.Fatal(err)
-	}
+	checkErr(err)
 	rowCnt, err := res.RowsAffected()
-	if err != nil {
-		log.Fatal(err)
-	}
+	checkErr(err)
 
 	return int(rowCnt)
 }
@@ -155,9 +148,7 @@ func insertUser(db *sql.DB, user *User) int {
 func queryRows(db *sql.DB) (users []*User) {
 	rows, err := db.Query("select user_id, mobile, openid, " +
 		"merchant_id, create_time, effective from tr_f_user")
-	if err != nil {
-		log.Fatal(err)
-	}
+	checkErr(err)
 	defer rows.Close()
 
 	for rows.Next() {
@@ -165,16 +156,18 @@ func queryRows(db *sql.DB) (users []*User) {
 
 		err := rows.Scan(&row.userId, &row.mobile, &row.openid,
 			&row.merchantId, &row.createTime, &row.effective)
-		if err != nil {
-			log.Fatal(err)
-		}
+		checkErr(err)
 
 		users = append(users, row)
 	}
 	err = rows.Err()
+	checkErr(err)
+
+	return
+}
+
+func checkErr(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	return
 }
