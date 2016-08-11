@@ -3,6 +3,7 @@ synchronize the database tables
 
 ## V1
 编译:
+
 1. 获取MySQL驱动 `go get github.com/go-sql-driver/mysql`
 2. 本地编译 `go build src/user-sync.go` 
 3. Linux 编译 `GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o user-sync.linux src/user-sync.go`
