@@ -26,28 +26,27 @@ func main() {
 	}
 
 	dataSourceName1 := os.Args[1]
-	db1 := getDb(dataSourceName1)
+	db1 := getUserDb(dataSourceName1)
 	defer db1.Close()
 
 	dataSourceName2 := os.Args[2]
-	db2 := getDb(dataSourceName2)
+	db2 := getUserDb(dataSourceName2)
 	defer db2.Close()
 
 	users1 := queryRows(db1)
-	mapUsers1 := makeMap(users1)
+	mapUsers1 := makeUserMap(users1)
 	users2 := queryRows(db2)
-	mapUsers2 := makeMap(users2)
+	mapUsers2 := makeUserMap(users2)
 
-	compare(mapUsers1, mapUsers2)
+	compareUser(mapUsers1, mapUsers2)
 
-	rows1 := merge(db1, mapUsers2)
-	rows2 := merge(db2, mapUsers1)
+	rows1 := mergeUsers(db1, mapUsers2)
+	rows2 := mergeUsers(db2, mapUsers1)
 	fmt.Printf("<<< Merged %v rows, >>> Merged %v rows", rows1, rows2)
 }
 
-func merge(db *sql.DB, users map[string]*User) int {
-	rows := 0
-	for _, user := range users {
+func mergeUsers(db *sql.DB, users map[string]*User) int {
+	rows := 0; for _, user := range users {
 		if user.comparedState == 1 {
 			// 一边有另外一边没有
 			rows += insertUser(db, user)
@@ -57,7 +56,7 @@ func merge(db *sql.DB, users map[string]*User) int {
 	return rows
 }
 
-func compare(users1 map[string]*User, users2 map[string]*User) {
+func compareUser(users1, users2 map[string]*User) {
 	for userId, user1 := range users1 {
 		user2, ok := users2[userId]
 		if !ok {
@@ -102,7 +101,7 @@ func nullStr(str sql.NullString) string {
 
 }
 
-func makeMap(users []*User) map[string]*User {
+func makeUserMap(users []*User) map[string]*User {
 	mapa := make(map[string]*User)
 	for _, v := range users {
 		mapa[v.userId.String] = v
@@ -123,9 +122,9 @@ func printMap(users map[string]*User) {
 	}
 }
 
-func getDb(dataSourceName string) *sql.DB {
+func getUserDb(dataSourceName string) *sql.DB {
 	db, err := sql.Open("mysql", dataSourceName)
-	checkErr(err)
+	checkUserErr(err)
 
 	return db
 }
@@ -134,13 +133,13 @@ func insertUser(db *sql.DB, user *User) int {
 	stmt, err := db.Prepare("insert into tr_f_user(" +
 		"user_id, mobile, openid, merchant_id, create_time, effective) " +
 		"values(?, ?, ?, ?, ?, ?)")
-	checkErr(err)
+	checkUserErr(err)
 
 	res, err := stmt.Exec(user.userId, user.mobile, user.openid,
 		user.merchantId, user.createTime, user.effective)
-	checkErr(err)
+	checkUserErr(err)
 	rowCnt, err := res.RowsAffected()
-	checkErr(err)
+	checkUserErr(err)
 
 	return int(rowCnt)
 }
@@ -148,7 +147,7 @@ func insertUser(db *sql.DB, user *User) int {
 func queryRows(db *sql.DB) (users []*User) {
 	rows, err := db.Query("select user_id, mobile, openid, " +
 		"merchant_id, create_time, effective from tr_f_user")
-	checkErr(err)
+	checkUserErr(err)
 	defer rows.Close()
 
 	for rows.Next() {
@@ -156,17 +155,17 @@ func queryRows(db *sql.DB) (users []*User) {
 
 		err := rows.Scan(&row.userId, &row.mobile, &row.openid,
 			&row.merchantId, &row.createTime, &row.effective)
-		checkErr(err)
+		checkUserErr(err)
 
 		users = append(users, row)
 	}
 	err = rows.Err()
-	checkErr(err)
+	checkUserErr(err)
 
 	return
 }
 
-func checkErr(err error) {
+func checkUserErr(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
