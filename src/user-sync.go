@@ -19,6 +19,12 @@ type User struct {
 
 // user-sync "root:my-secret-pw@tcp(192.168.99.100:13306)/dba" "root:my-secret-pw@tcp(192.168.99.100:13306)/dbb"
 func main() {
+	if len(os.Args) != 3 {
+		fmt.Println("Usage: ./user-sync dataSourceName1 dataSourceName2\n" +
+			"Example:./user-sync \"root:mypw@tcp(localhost:3306)/dba\" \"root:mypw@tcp(localhost:3306)/dbb\"")
+		return
+	}
+
 	dataSourceName1 := os.Args[1]
 	db1 := getDb(dataSourceName1)
 	defer db1.Close()
