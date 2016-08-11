@@ -40,17 +40,21 @@ func main() {
 
 	compare(mapUsers1, mapUsers2)
 
-	merge(db1, mapUsers2)
-	merge(db2, mapUsers1)
+	rows1 := merge(db1, mapUsers2)
+	rows2 := merge(db2, mapUsers1)
+	fmt.Printf("<<< Merged %v rows, >>> Merged %v rows", rows1, rows2)
 }
 
-func merge(db *sql.DB, users map[string]*User) {
+func merge(db *sql.DB, users map[string]*User) int {
+	rows := 0
 	for _, user := range users {
 		if user.comparedState == 1 {
 			// 一边有另外一边没有
-			insertUser(db, user)
+			rows += insertUser(db, user)
 		}
 	}
+
+	return rows
 }
 
 func compare(users1 map[string]*User, users2 map[string]*User) {
@@ -127,7 +131,7 @@ func getDb(dataSourceName string) *sql.DB {
 	return db
 }
 
-func insertUser(db *sql.DB, user *User) {
+func insertUser(db *sql.DB, user *User) int {
 	stmt, err := db.Prepare("insert into tr_f_user(" +
 		"user_id, mobile, openid, merchant_id, create_time, effective) " +
 		"values(?, ?, ?, ?, ?, ?)")
@@ -140,15 +144,12 @@ func insertUser(db *sql.DB, user *User) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	lastId, err := res.LastInsertId()
-	if err != nil {
-		log.Fatal(err)
-	}
 	rowCnt, err := res.RowsAffected()
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("ID = %d, affected = %d\n", lastId, rowCnt)
+
+	return int(rowCnt)
 }
 
 func queryRows(db *sql.DB) (users []*User) {
