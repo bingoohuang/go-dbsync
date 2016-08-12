@@ -51,7 +51,7 @@ func mergeRows(db *sql.DB, tableName string, rows *map[string]TableRow) int {
 			continue
 		}
 
-		fmt.Println(row)
+		// fmt.Println(row)
 		mergedRowsCount += insertRow(db, tableName, &row)
 	}
 
