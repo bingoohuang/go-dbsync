@@ -30,3 +30,5 @@ user-sync
 *.linux
 
 sync
+
+dbsync

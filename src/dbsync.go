@@ -16,39 +16,40 @@ const comparedResult = "_comparedResult_"
 type TableRow map[string]string
 
 func main() {
-	if len(os.Args) != 4 {
-		fmt.Println("Usage: ./sync tableName dataSourceName1 dataSourceName2\n" +
-			"Example:./sync tr_f_user \"root:mypw@tcp(localhost:3306)/dba\" \"root:mypw@tcp(localhost:3306)/dbb\"")
+	if len(os.Args) < 4 {
+		fmt.Println("Usage: ./dbsync dataSourceName1 dataSourceName2 table1 table2 ...\n" +
+			"Example:./dbsync \"root:mypw@tcp(localhost:3306)/dba\" \"root:mypw@tcp(localhost:3306)/dbb\" tr_f_user")
 		return
 	}
 
-	tableName := os.Args[1]
-	dataSourceName1 := os.Args[2]
-	dataSourceName2 := os.Args[3]
-
+	dataSourceName1 := os.Args[1]
+	dataSourceName2 := os.Args[2]
 	db1 := getDb(dataSourceName1); defer db1.Close()
 	db2 := getDb(dataSourceName2); defer db2.Close()
 
-	sql := "select * from " + tableName
-	rowsMap1 := execQuery(db1, sql)
-	rowsMap2 := execQuery(db2, sql)
+	for i := 3; i < len(os.Args); i++ {
+		tableName := os.Args[i]
 
-	compareRows(rowsMap1, rowsMap2)
-	fmt.Print("Start to merge left table")
-	rows1 := mergeRows(db1, tableName, rowsMap2)
-	fmt.Printf(", merged %v rows\n", rows1)
+		sql := "select * from " + tableName
+		rowsMap1 := execQuery(db1, sql)
+		rowsMap2 := execQuery(db2, sql)
 
-	fmt.Print("Start to merge right table")
-	rows2 := mergeRows(db2, tableName, rowsMap1)
-	fmt.Printf(", merged %v rows\n", rows2)
+		compareRows(rowsMap1, rowsMap2)
+		fmt.Print("Start to merge left " + tableName)
+		rows1 := mergeRows(db1, tableName, rowsMap2)
+		fmt.Printf(", merged %v rows\n", rows1)
+
+		fmt.Print("Start to merge right " + tableName)
+		rows2 := mergeRows(db2, tableName, rowsMap1)
+		fmt.Printf(", merged %v rows\n", rows2)
+	}
 }
 
 func mergeRows(db *sql.DB, tableName string, rows *map[string]TableRow) int {
 	mergedRowsCount := 0
 	for _, row := range *rows {
 		if row[comparedState] != "1" {
-			// 一边有另外一边没有
-			continue
+			continue // 一边有另外一边没有
 		}
 
 		// fmt.Println(row)
@@ -69,9 +70,7 @@ func insertRow(db *sql.DB, tableName string, row *TableRow) int {
 
 	res, err := stmt.Exec(vals...)
 	if err != nil {
-		fmt.Println(vals)
-		fmt.Println(err)
-		return 0
+		fmt.Println(vals); fmt.Println(err); return 0
 	}
 
 	rowCnt, err := res.RowsAffected()
@@ -79,26 +78,22 @@ func insertRow(db *sql.DB, tableName string, row *TableRow) int {
 
 	return int(rowCnt)
 }
-func compositeSql(tableName string, row *TableRow) (string, []interface{}) {
-	sql := "insert into " + tableName + "(";
-	vals := make([]interface{}, len(*row))
-	i := 0; for key, val := range *row {
-		sql += key + ","
 
+func compositeSql(tableName string, row *TableRow) (string, []interface{}) {
+	sql := "insert into " + tableName + "("
+	vals := make([]interface{}, len(*row))
+
+	i := 0; for key, val := range *row {
 		if val == "NULL" {
 			vals[i] = nil
 		} else {
 			vals[i] = val
 		}
-		i++;
+		sql += key + ","; i++
 	}
-	sql = trimSuffix(sql, ",")
-	sql += ") values("
 
-	for range vals {
-		sql += "?,"
-	}
-	sql = trimSuffix(sql, ",") + ")"
+	sql = strings.TrimRight(sql, ",") + ") values(" + strings.Repeat("?,", len(*row))
+	sql = strings.TrimRight(sql, ",") + ")"
 	// fmt.Println("vals", vals, "sql:", sql)
 
 	return sql, vals
@@ -108,22 +103,18 @@ func compareRows(rows1, rows2 *map[string]TableRow) {
 	for pk, row1 := range *rows1 {
 		row2, ok := (*rows2)[pk]
 		if !ok {
-			row1[comparedState] = "1" // 左边有右边没有
-			continue
+			row1[comparedState] = "1" /* 左边有右边没有*/; continue
 		}
 
 		// 两边都有, 比较内容
 		deep_equal := reflect.DeepEqual(row1, row2)
 		if deep_equal {
-			row1[comparedState] = "2"
-			row2[comparedState] = "2"
+			row1[comparedState] = "2"; row2[comparedState] = "2"
 		} else {
-			result := fmt.Sprintf("<<<%s\n>>>%s\n", strRow(&row1), strRow(&row2))
-			row1[comparedState] = "3"
-			row2[comparedState] = "3"
-			row1[comparedResult] = result
-			row2[comparedResult] = result
-			fmt.Printf(result)
+			msg := fmt.Sprintf("<<<%v\n>>>%v\n", row1, row2)
+			row1[comparedState] = "3"; row2[comparedState] = "3"
+			row1[comparedResult] = msg; row2[comparedResult] = msg
+			fmt.Printf(msg)
 		}
 	}
 
@@ -132,10 +123,6 @@ func compareRows(rows1, rows2 *map[string]TableRow) {
 			row2[comparedState] = "1"
 		}
 	}
-}
-
-func strRow(m *TableRow) string {
-	return fmt.Sprintf("%v", m)
 }
 
 func execQuery(db *sql.DB, sql string) *map[string]TableRow {
@@ -159,11 +146,11 @@ func execQuery(db *sql.DB, sql string) *map[string]TableRow {
 
 		row := make(TableRow)
 		for k, v := range values {
-			key := column[k]
+			pk := column[k];
 			if v == nil {
-				row[key] = "NULL"
+				row[pk] = "NULL"
 			} else {
-				row[key] = string(v)
+				row[pk] = string(v)
 			}
 		}
 
@@ -171,7 +158,7 @@ func execQuery(db *sql.DB, sql string) *map[string]TableRow {
 		results[primaryKey] = row
 	}
 
-	return &results;
+	return &results
 }
 
 func getDb(dataSourceName string) *sql.DB {
@@ -185,11 +172,4 @@ func checkErr(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func trimSuffix(s, suffix string) string {
-	if strings.HasSuffix(s, suffix) {
-		s = s[:len(s) - len(suffix)]
-	}
-	return s
 }
