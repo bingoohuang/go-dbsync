@@ -13,6 +13,8 @@ import (
 const comparedState = "_comparedState_"
 const comparedResult = "_comparedResult_"
 
+type TableRow map[string]string
+
 func main() {
 	if len(os.Args) != 4 {
 		fmt.Println("Usage: ./sync tableName dataSourceName1 dataSourceName2\n" +
@@ -35,12 +37,13 @@ func main() {
 	fmt.Print("Start to merge left table")
 	rows1 := mergeRows(db1, tableName, rowsMap2)
 	fmt.Printf(", merged %v rows\n", rows1)
+
 	fmt.Print("Start to merge right table")
 	rows2 := mergeRows(db2, tableName, rowsMap1)
 	fmt.Printf(", merged %v rows\n", rows2)
 }
 
-func mergeRows(db *sql.DB, tableName string, rows *map[string]map[string]string) int {
+func mergeRows(db *sql.DB, tableName string, rows *map[string]TableRow) int {
 	mergedRowsCount := 0
 	for _, row := range *rows {
 		if row[comparedState] != "1" {
@@ -55,7 +58,7 @@ func mergeRows(db *sql.DB, tableName string, rows *map[string]map[string]string)
 	return mergedRowsCount
 }
 
-func insertRow(db *sql.DB, tableName string, row *map[string]string) int {
+func insertRow(db *sql.DB, tableName string, row *TableRow) int {
 	delete(*row, comparedState)
 	delete(*row, comparedResult)
 
@@ -76,7 +79,7 @@ func insertRow(db *sql.DB, tableName string, row *map[string]string) int {
 
 	return int(rowCnt)
 }
-func compositeSql(tableName string, row *map[string]string) (string, []interface{}) {
+func compositeSql(tableName string, row *TableRow) (string, []interface{}) {
 	sql := "insert into " + tableName + "(";
 	vals := make([]interface{}, len(*row))
 	i := 0; for key, val := range *row {
@@ -101,7 +104,7 @@ func compositeSql(tableName string, row *map[string]string) (string, []interface
 	return sql, vals
 }
 
-func compareRows(rows1, rows2 *map[string]map[string]string) {
+func compareRows(rows1, rows2 *map[string]TableRow) {
 	for pk, row1 := range *rows1 {
 		row2, ok := (*rows2)[pk]
 		if !ok {
@@ -115,7 +118,7 @@ func compareRows(rows1, rows2 *map[string]map[string]string) {
 			row1[comparedState] = "2"
 			row2[comparedState] = "2"
 		} else {
-			result := fmt.Sprintf("<<<%s\n>>>%s\n", strRow(row1), strRow(row2))
+			result := fmt.Sprintf("<<<%s\n>>>%s\n", strRow(&row1), strRow(&row2))
 			row1[comparedState] = "3"
 			row2[comparedState] = "3"
 			row1[comparedResult] = result
@@ -131,11 +134,11 @@ func compareRows(rows1, rows2 *map[string]map[string]string) {
 	}
 }
 
-func strRow(m map[string]string) string {
+func strRow(m *TableRow) string {
 	return fmt.Sprintf("%v", m)
 }
 
-func execQuery(db *sql.DB, sql string) *map[string]map[string]string {
+func execQuery(db *sql.DB, sql string) *map[string]TableRow {
 	rows, err := db.Query(sql)
 	checkErr(err)
 	defer rows.Close()
@@ -147,14 +150,14 @@ func execQuery(db *sql.DB, sql string) *map[string]map[string]string {
 		scans[i] = &values[i] //让每一行数据都填充到[][]byte里面
 	}
 
-	results := make(map[string]map[string]string)
+	results := make(map[string]TableRow)
 
 	for rows.Next() {
 		if err := rows.Scan(scans...); err != nil {
 			checkErr(err)
 		}
 
-		row := make(map[string]string)
+		row := make(TableRow)
 		for k, v := range values {
 			key := column[k]
 			if v == nil {
