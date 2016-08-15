@@ -2,12 +2,13 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"github.com/BurntSushi/toml"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
-	"reflect"
-	"fmt"
-	"strings"
 	"os"
+	"reflect"
+	"strings"
 )
 
 const comparedState = "_comparedState_"
@@ -15,21 +16,17 @@ const comparedResult = "_comparedResult_"
 
 type TableRow map[string]string
 
+type DbSyncConfig struct {
+	Db1, Db2   string
+	SyncTables []string
+}
+
 func main() {
-	if len(os.Args) < 4 {
-		fmt.Println("Usage: ./dbsync dataSourceName1 dataSourceName2 table1 table2 ...\n" +
-			"Example:./dbsync \"root:mypw@tcp(localhost:3306)/dba\" \"root:mypw@tcp(localhost:3306)/dbb\" tr_f_user")
-		return
-	}
+	dbSyncConfig := readConfig()
+	db1 := getDb(dbSyncConfig.Db1); defer db1.Close()
+	db2 := getDb(dbSyncConfig.Db2); defer db2.Close()
 
-	dataSourceName1 := os.Args[1]
-	dataSourceName2 := os.Args[2]
-	db1 := getDb(dataSourceName1); defer db1.Close()
-	db2 := getDb(dataSourceName2); defer db2.Close()
-
-	for i := 3; i < len(os.Args); i++ {
-		tableName := os.Args[i]
-
+	for _, tableName := range dbSyncConfig.SyncTables {
 		sql := "select * from " + tableName
 		rowsMap1 := execQuery(db1, sql)
 		rowsMap2 := execQuery(db2, sql)
@@ -45,15 +42,28 @@ func main() {
 	}
 }
 
+func readConfig() DbSyncConfig {
+	fpath := "dbsync.toml"
+	if len(os.Args) > 1 {
+		fpath = os.Args[1]
+	}
+
+	dbSyncConfig := DbSyncConfig{}
+	if _, err := toml.DecodeFile(fpath, &dbSyncConfig); err != nil {
+		checkErr(err)
+	}
+
+	return dbSyncConfig
+}
+
 func mergeRows(db *sql.DB, tableName string, rows *map[string]TableRow) int {
 	mergedRowsCount := 0
 	for _, row := range *rows {
-		if row[comparedState] != "1" {
-			continue // 一边有另外一边没有
+		// 一边有另外一边没有
+		if row[comparedState] == "1" {
+			// fmt.Println(row)
+			mergedRowsCount += insertRow(db, tableName, &row)
 		}
-
-		// fmt.Println(row)
-		mergedRowsCount += insertRow(db, tableName, &row)
 	}
 
 	return mergedRowsCount
@@ -64,7 +74,6 @@ func insertRow(db *sql.DB, tableName string, row *TableRow) int {
 	delete(*row, comparedResult)
 
 	sql, vals := compositeSql(tableName, row)
-
 	stmt, err := db.Prepare(sql)
 	checkErr(err)
 
@@ -146,7 +155,7 @@ func execQuery(db *sql.DB, sql string) *map[string]TableRow {
 
 		row := make(TableRow)
 		for k, v := range values {
-			pk := column[k];
+			pk := column[k]
 			if v == nil {
 				row[pk] = "NULL"
 			} else {
