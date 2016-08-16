@@ -20,6 +20,18 @@ type DbSyncConfig struct {
 	SyncTables []string
 }
 
+type SyncParam struct {
+	db1             *mydb.Db
+	db2             *mydb.Db
+	tableName       string
+	nodb            *mynodb.Nodb
+	rowChan1        chan map[string]string
+	rowChan2        chan map[string]string
+	diffRowsCount   int
+	leftMergedRows  int
+	rightMergedRows int
+}
+
 func main() {
 	dbSyncConfig := readConfig()
 	db1 := mydb.GetDb(dbSyncConfig.Db1)
@@ -32,12 +44,14 @@ func main() {
 
 	for _, tableName := range dbSyncConfig.SyncTables {
 		rowChan1 := make(chan map[string]string)
-		go walkDb1(rowChan1, db1, tableName)
-		mergeToDb2(rowChan1, db2, tableName, nodb)
-
 		rowChan2 := make(chan map[string]string)
-		go walkDb2(rowChan2, db2, tableName, nodb)
-		mergeToDb1(rowChan2, db1, tableName)
+		syncConf := SyncParam{db1, db2, tableName, nodb, rowChan1, rowChan2, 0, 0, 0}
+
+		go syncConf.walkDb1()
+		syncConf.mergeToDb2()
+
+		go syncConf.walkDb2()
+		syncConf.mergeToDb1()
 	}
 }
 
@@ -55,26 +69,26 @@ func readConfig() DbSyncConfig {
 	return dbSyncConfig
 }
 
-func walkDb2(rowChan chan<- map[string]string, db *mydb.Db, tableName string, nodb *mynodb.Nodb) {
-	rows := db.Query("select * from " + tableName)
+func (syncParam *SyncParam) walkDb2() {
+	rows := syncParam.db2.Query("select * from " + syncParam.tableName)
 	defer rows.Close()
-	defer close(rowChan)
+	defer close(syncParam.rowChan2)
 
-	pkCol, _ := nodb.Get(PK_COL)
+	pkCol, _ := syncParam.nodb.Get(PK_COL)
 	columns, values, scans := mydb.MakeColumnsValues(rows)
 
 	for rows.Next() {
-		row := *mydb.ScanRow(rows, columns, values, scans)
-		if !nodb.Exists(row[pkCol]) {
-			rowChan <- row
+		row := mydb.ScanRow(rows, columns, values, scans)
+		if !syncParam.nodb.Exists((*row)[pkCol]) {
+			syncParam.rowChan2 <- *row
 		}
 	}
 }
 
-func walkDb1(rowChan chan<- map[string]string, db *mydb.Db, tableName string) {
-	rows := db.Query("select * from " + tableName)
+func (syncParam *SyncParam) walkDb1() {
+	rows := syncParam.db1.Query("select * from " + syncParam.tableName)
 	defer rows.Close()
-	defer close(rowChan)
+	defer close(syncParam.rowChan1)
 
 	columns, values, scans := mydb.MakeColumnsValues(rows)
 
@@ -83,75 +97,68 @@ func walkDb1(rowChan chan<- map[string]string, db *mydb.Db, tableName string) {
 
 		row[PK] = string(values[0])
 		row[PK_COL] = columns[0]
-		rowChan <- row
+		syncParam.rowChan1 <- row
 	}
 }
 
-func mergeToDb1(rowChan <-chan map[string]string, db *mydb.Db, tableName string) {
+func (syncParam *SyncParam) mergeToDb1() {
 	startTime := time.Now()
-	fmt.Println("Start to merge left " + tableName)
-	mergedRowsCount := 0
-	for row1 := range rowChan {
-		db.InsertRow(tableName, &row1)
-		mergedRowsCount += 1
+	fmt.Println("Start to merge left " + syncParam.tableName)
+	for row1 := range syncParam.rowChan2 {
+		syncParam.db1.InsertRow(syncParam.tableName, &row1)
+		syncParam.leftMergedRows += 1
 	}
 
 	costTime := time.Now().Sub(startTime)
-	fmt.Printf("Merged left %v with %v rows in %v\n", tableName, mergedRowsCount, costTime)
-
+	fmt.Printf("Merged left %v with %v rows in %v\n",
+		syncParam.tableName, syncParam.leftMergedRows, costTime)
 }
 
-func mergeToDb2(rowChan <-chan map[string]string, db *mydb.Db, tableName string, nodb *mynodb.Nodb) {
+func (syncParam *SyncParam) mergeToDb2() {
 	startTime := time.Now()
-	fmt.Println("Start to merge right " + tableName)
-	mergedRowsCount, diffRowsCount := 0, 0
-	for row1 := range rowChan {
-		merged, diffs := mergeRowToDb2(diffRowsCount, row1, db, tableName, nodb)
-		mergedRowsCount += merged
-		diffRowsCount += diffs
+	fmt.Println("Start to merge right " + syncParam.tableName)
+	for row1 := range syncParam.rowChan1 {
+		syncParam.mergeRowToDb2(row1)
 	}
 
 	costTime := time.Now().Sub(startTime)
-	fmt.Printf("Merged right %v with %v rows in %v\n", tableName, mergedRowsCount, costTime)
+	fmt.Printf("Merged right %v with %v rows in %v\n",
+		syncParam.tableName, syncParam.rightMergedRows, costTime)
 }
 
-func mergeRowToDb2(diffRowsCount int, row1 map[string]string, db *mydb.Db, tableName string, nodb *mynodb.Nodb) (int, int) {
+func (syncParam *SyncParam) mergeRowToDb2(row1 map[string]string) {
 	pk := row1[PK]
 	pkCol := row1[PK_COL]
-	sql := "select * from " + tableName + " where " + pkCol + " = ? limit 1"
-	rows := db.Query(sql, pk)
+	sql := "select * from " + syncParam.tableName + " where " + pkCol + " = ? limit 1"
+	rows := syncParam.db2.Query(sql, pk)
 	defer rows.Close()
 
-	nodb.Set(PK_COL, pkCol)
+	syncParam.nodb.Set(PK_COL, pkCol)
 	delete(row1, PK)
 	delete(row1, PK_COL)
 
 	columns, values, scans := mydb.MakeColumnsValues(rows)
 	if rows.Next() {
-		row2 := *mydb.ScanRow(rows, columns, values, scans)
-		equal := compareRow(diffRowsCount, columns, &row1, &row2)
-		if equal {
-			nodb.Set(pk, "2")
-			return 0, 0
-		} else {
-			nodb.Set(pk, "3")
-			return 0, 1
-		}
+		row2 := mydb.ScanRow(rows, columns, values, scans)
+		syncParam.compareRow(columns, &row1, row2)
 	} else {
-		db.InsertRow(tableName, &row1)
-		nodb.Set(pk, "1")
-		return 1, 0
+		syncParam.db2.InsertRow(syncParam.tableName, &row1)
+		syncParam.nodb.Set(pk, "1")
+		syncParam.rightMergedRows += 1
 	}
 }
 
-func compareRow(diffRowsCount int, columns []string, row1, row2 *map[string]string) bool {
+func (syncParam *SyncParam) compareRow(columns []string, row1, row2 *map[string]string) {
+	pk := (*row1)[PK]
 	if reflect.DeepEqual(*row1, *row2) {
-		return true
+		syncParam.nodb.Set(pk, "2")
 	}
 
+	syncParam.nodb.Set(pk, "3")
+	syncParam.diffRowsCount += 1
+
 	msg := fmt.Sprintf("%v<<<%v\n%v>>>%v\n",
-		diffRowsCount+1, myutil.RowToString(columns, row1),
-		diffRowsCount+1, myutil.RowToString(columns, row2))
+		syncParam.diffRowsCount+1, myutil.RowToString(columns, row1),
+		syncParam.diffRowsCount+1, myutil.RowToString(columns, row2))
 	fmt.Printf(msg)
-	return false
 }
