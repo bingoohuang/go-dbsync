@@ -128,19 +128,19 @@ func (syncParam *SyncParam) mergeToDb2() {
 
 func (syncParam *SyncParam) mergeRowToDb2(row1 map[string]string) {
 	pk := row1[PK]
+	delete(row1, PK)
 	pkCol := row1[PK_COL]
+	delete(row1, PK_COL)
 	sql := "select * from " + syncParam.tableName + " where " + pkCol + " = ? limit 1"
 	rows := syncParam.db2.Query(sql, pk)
 	defer rows.Close()
 
 	syncParam.nodb.Set(PK_COL, pkCol)
-	delete(row1, PK)
-	delete(row1, PK_COL)
 
 	columns, values, scans := mydb.MakeColumnsValues(rows)
 	if rows.Next() {
 		row2 := mydb.ScanRow(rows, columns, values, scans)
-		syncParam.compareRow(columns, &row1, row2)
+		syncParam.compareRow(pk, columns, &row1, row2)
 	} else {
 		syncParam.db2.InsertRow(syncParam.tableName, &row1)
 		syncParam.nodb.Set(pk, "1")
@@ -148,10 +148,10 @@ func (syncParam *SyncParam) mergeRowToDb2(row1 map[string]string) {
 	}
 }
 
-func (syncParam *SyncParam) compareRow(columns []string, row1, row2 *map[string]string) {
-	pk := (*row1)[PK]
+func (syncParam *SyncParam) compareRow(pk string, columns []string, row1, row2 *map[string]string) {
 	if reflect.DeepEqual(*row1, *row2) {
 		syncParam.nodb.Set(pk, "2")
+		return
 	}
 
 	syncParam.nodb.Set(pk, "3")
