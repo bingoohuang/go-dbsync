@@ -16,6 +16,11 @@ synchronize the database tables
 
 ## V2
 
+1. 获取MySQL驱动 `go get github.com/go-sql-driver/mysql`
+2. 获取nodb `go get github.com/lunny/nodb`
+3. 获取toml `go get github.com/BurntSushi/toml`
+4. 本地编译 `go build src/dbsync.go` 
+
 可以同步指定表的数据,例如:
 
 ```
