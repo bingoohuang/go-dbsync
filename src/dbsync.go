@@ -79,8 +79,8 @@ func (syncParam *SyncParam) walkDb2() {
 
 	for rows.Next() {
 		row := mydb.ScanRow(rows, columns, values, scans)
-		if !syncParam.nodb.Exists((*row)[pkCol]) {
-			syncParam.rowChan2 <- *row
+		if !syncParam.nodb.Exists(row[pkCol]) {
+			syncParam.rowChan2 <- row
 		}
 	}
 }
@@ -93,7 +93,7 @@ func (syncParam *SyncParam) walkDb1() {
 	columns, values, scans := mydb.MakeColumnsValues(rows)
 
 	for rows.Next() {
-		row := *mydb.ScanRow(rows, columns, values, scans)
+		row := mydb.ScanRow(rows, columns, values, scans)
 
 		row[PK] = string(values[0])
 		row[PK_COL] = columns[0]
@@ -105,7 +105,7 @@ func (syncParam *SyncParam) mergeToDb1() {
 	startTime := time.Now()
 	fmt.Println("Start to merge left " + syncParam.tableName)
 	for row1 := range syncParam.rowChan2 {
-		syncParam.db1.InsertRow(syncParam.tableName, &row1)
+		syncParam.db1.InsertRow(syncParam.tableName, row1)
 		syncParam.leftMergedRows += 1
 	}
 
@@ -140,16 +140,16 @@ func (syncParam *SyncParam) mergeRowToDb2(row1 map[string]string) {
 	columns, values, scans := mydb.MakeColumnsValues(rows)
 	if rows.Next() {
 		row2 := mydb.ScanRow(rows, columns, values, scans)
-		syncParam.compareRow(pk, columns, &row1, row2)
+		syncParam.compareRow(pk, columns, row1, row2)
 	} else {
-		syncParam.db2.InsertRow(syncParam.tableName, &row1)
+		syncParam.db2.InsertRow(syncParam.tableName, row1)
 		syncParam.nodb.Set(pk, "1")
 		syncParam.rightMergedRows += 1
 	}
 }
 
-func (syncParam *SyncParam) compareRow(pk string, columns []string, row1, row2 *map[string]string) {
-	if reflect.DeepEqual(*row1, *row2) {
+func (syncParam *SyncParam) compareRow(pk string, columns []string, row1, row2 map[string]string) {
+	if reflect.DeepEqual(row1, row2) {
 		syncParam.nodb.Set(pk, "2")
 		return
 	}

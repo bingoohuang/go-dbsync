@@ -39,7 +39,7 @@ func MakeColumnsValues(rows *sql.Rows) ([]string, [][]byte, []interface{}) {
 	return columns, values, scans
 }
 
-func ScanRow(rows *sql.Rows, columns []string, values [][]byte, scans []interface{}) *map[string]string {
+func ScanRow(rows *sql.Rows, columns []string, values [][]byte, scans []interface{}) map[string]string {
 	if err := rows.Scan(scans...); err != nil {
 		myutil.CheckErr(err)
 	}
@@ -54,10 +54,10 @@ func ScanRow(rows *sql.Rows, columns []string, values [][]byte, scans []interfac
 		}
 	}
 
-	return &row
+	return row
 }
 
-func (db *Db) InsertRow(tableName string, row *map[string]string) int {
+func (db *Db) InsertRow(tableName string, row map[string]string) int {
 	sql, vals := compositeSql(tableName, row)
 	stmt, err := db.db.Prepare(sql)
 	myutil.CheckErr(err)
@@ -75,13 +75,13 @@ func (db *Db) InsertRow(tableName string, row *map[string]string) int {
 	return int(rowCnt)
 }
 
-func compositeSql(tableName string, row *map[string]string) (string, []interface{}) {
+func compositeSql(tableName string, row map[string]string) (string, []interface{}) {
 	mystr := myutil.MyStr{}
 	mystr.PS("insert into ").PS(tableName).PS("(")
-	vals := make([]interface{}, len(*row))
+	vals := make([]interface{}, len(row))
 
 	i := 0
-	for key, val := range *row {
+	for key, val := range row {
 		if val == "NULL" {
 			vals[i] = nil
 		} else {
@@ -92,7 +92,7 @@ func compositeSql(tableName string, row *map[string]string) (string, []interface
 		i++
 	}
 
-	mystr.ReplaceLast(")").PS(" values(").PS(strings.Repeat("?,", len(*row))).ReplaceLast(")")
+	mystr.ReplaceLast(")").PS(" values(").PS(strings.Repeat("?,", len(row))).ReplaceLast(")")
 	sql := mystr.Str()
 	// fmt.Println("vals", vals, "sql:", sql)
 
