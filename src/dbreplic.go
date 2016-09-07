@@ -25,6 +25,10 @@ AND t.table_schema = DATABASE() AND t.table_name = 'cats';
 4）建表
 SHOW CREATE TABLE dba.cats;
 DESCRIBE cats;
+5) 增加表同步列
+ALTER TABLE `cats` ADD COLUMN `sys_sync_id` INT AUTO_INCREMENT UNIQUE;
+ALTER TABLE `cats` ADD COLUMN `sys_sync_update_time`  TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE `cats` ADD COLUMN `sys_sync_create_time`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
  */
 
 func main() {
