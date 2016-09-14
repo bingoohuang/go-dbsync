@@ -1,19 +1,19 @@
 package main
 
 import (
-	"crypto/cipher"
-	"crypto/aes"
-	"encoding/base64"
-	"fmt"
-	"io"
-	"crypto/rand"
-	"errors"
-	"io/ioutil"
-	"regexp"
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
 	"flag"
-	"bufio"
+	"fmt"
+	"github.com/dgiagio/getpass"
+	"io"
+	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -22,57 +22,85 @@ import (
 */
 
 func main() {
-	mode := flag.String("mode", "encode", "mode(encode/decode)")
+	mode := flag.String("mode", "encode", "mode(encode/decode/src)")
 	key := flag.String("key", "", "key to encyption or decyption")
-	file := flag.String("file", "", "input file")
+	infile := flag.String("infile", "", "input file")
+	outfile := flag.String("outfile", "", "output file")
 	flag.Parse()
-	if *file == "" {
-		fmt.Printf("file argument is required!\n")
-		Usage()
-		os.Exit(-1)
+	if *infile == "" {
+		msg := "file argument is required!\n"
+		printErrorAndExit(msg)
 	}
 
-	keyStr := *key;
+	keyStr := *key
 	if *key == "" {
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Please input key: ")
-		keyStr, _ = reader.ReadString('\n')
-		keyStr = strings.TrimSpace(keyStr)
+		keyStr, _ = getpass.GetPassword("Please input the key: ")
 	}
+	keyStr = FixStrLength(keyStr, 16)
 
-	keyStr = FixStrLength(keyStr, 16);
+	txtBytes, err := ioutil.ReadFile(*infile)
+	checkError(err)
 
-	txtBytes, _ := ioutil.ReadFile(*file)
-	txt := string(txtBytes);
+	txt := string(txtBytes)
 
-	if *mode == "encode" {
-		regex, _ := regexp.Compile("\\$\\{\\?:(.*?)\\}")
-		result := ReplaceAllGroupFunc(regex, txt, func(groups []string) string {
+	var regex *regexp.Regexp
+	var replaceFunc func(groups []string) string
+
+	switch *mode {
+	default:
+		printErrorAndExit("mode argument should be ecode/decode/src!\n")
+
+	case "encode":
+		regex, _ = regexp.Compile("\\$\\{\\?:(.*?)\\}")
+		replaceFunc = func(groups []string) string {
 			cipher, _ := CBCEncrypt(keyStr, groups[1])
 			return "${AES:" + cipher + "}"
-		})
-
-		fmt.Printf("%s\n", result)
-	} else if *mode == "decode" {
-		regex, _ := regexp.Compile("\\$\\{AES:(.*?)\\}")
-		result := ReplaceAllGroupFunc(regex, txt, func(groups []string) string {
+		}
+	case "decode":
+		regex, _ = regexp.Compile("\\$\\{AES:(.*?)\\}")
+		replaceFunc = func(groups []string) string {
 			clear, _ := CBCDecrypt(keyStr, groups[1])
 			return clear
-		})
+		}
+	case "src":
+		regex, _ = regexp.Compile("\\$\\{AES:(.*?)\\}")
+		replaceFunc = func(groups []string) string {
+			clear, _ := CBCDecrypt(keyStr, groups[1])
+			return "${?:" + clear + "}"
+		}
+	}
+
+	result := ReplaceAllGroupFunc(regex, txt, replaceFunc)
+	WriteOutput(*outfile, result)
+}
+
+func printErrorAndExit(msg string) {
+	fmt.Printf(msg)
+	Usage()
+	os.Exit(-1)
+}
+
+func WriteOutput(outfile, result string) {
+	if outfile == "" {
 		fmt.Printf("%s\n", result)
 	} else {
-		fmt.Printf("mode argument should be ecode or decode!\n")
-		Usage();
-		os.Exit(-1)
+		err := ioutil.WriteFile(outfile, []byte(result), 0644)
+		checkError(err)
 	}
 }
+func checkError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func FixStrLength(s string, fixLen int) string {
 	slen := len(s)
 	if slen < fixLen {
-		return s + strings.Repeat("0", fixLen - slen)
+		return s + strings.Repeat("0", fixLen-slen)
 	}
 
-	if (slen > fixLen) {
+	if slen > fixLen {
 		return s[:fixLen]
 	}
 
@@ -121,7 +149,7 @@ func CBCEncrypt(strKey, strPlaintext string) (string, error) {
 
 	// The IV needs to be unique, but not secure. Therefore it's common to
 	// include it at the beginning of the ciphertext.
-	ciphertext := make([]byte, aes.BlockSize + len(plaintext))
+	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
 	iv := ciphertext[:aes.BlockSize]
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
 		return "", err
@@ -157,7 +185,7 @@ func CBCDecrypt(strKey, strCiphertext string) (string, error) {
 	ciphertext = ciphertext[aes.BlockSize:]
 
 	// CBC mode always works in whole blocks.
-	if len(ciphertext) % aes.BlockSize != 0 {
+	if len(ciphertext)%aes.BlockSize != 0 {
 		return "", errors.New("ciphertext is not a multiple of the block size")
 	}
 
