@@ -32,3 +32,15 @@ user-sync
 sync
 
 dbsync
+
+go-log-client
+
+go-log-gen
+
+out.txt
+
+server/abc.log
+
+*.log
+
+go-log-server
