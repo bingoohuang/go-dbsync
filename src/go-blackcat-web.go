@@ -57,8 +57,9 @@ func BlackcatHandler(ctx *iris.Context) {
 	cql := `SELECT tspretty,linkid,msgtype,msg FROM event_trace WHERE traceid = ?`
 
 	for _, traceid := range traceidArr {
-		ctx.Writef("==========traceid:%s\n", traceid)
-		ExecuteQuery(session, cql, traceid, ctx)
+		trimmedTraceId := strings.TrimSpace(traceid)
+		ctx.Writef("==========traceid:%s\n", trimmedTraceId)
+		ExecuteQuery(session, cql, trimmedTraceId, ctx)
 	}
 
 }
