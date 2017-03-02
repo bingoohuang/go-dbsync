@@ -44,3 +44,15 @@ Db2 = "root:my-secret-pw@tcp(192.168.99.100:13306)/dbb"
 # 需要同步的表,可以指定多个
 SyncTables = [ "tr_f_user" ]
 ```
+
+# go-blackcat-web
+提供了一个blackcat的消息跟踪展示原始的web<br>
+编译: `env GOOS=linux GOARCH=amd64 go build -o go-blackcat-web-linux src/go-blackcat-web.go` <br>
+配置文件go-blackcat-web.toml:
+
+```toml
+CassandraHosts = ["127.0.0.1"]
+CassandraPort = 9042
+ListenPort = 8181
+```
+启动: `./nohup ./go-blackcat-web-linux ./go-blackcat-web.toml 2>&1 > go-blackcat-web.log  &`

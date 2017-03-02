@@ -9,7 +9,6 @@ dbsync
 out.txt
 server/abc.log
 *.log
-go-*
 dbreplic
 .idea
 

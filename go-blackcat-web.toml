@@ -1,0 +1,3 @@
+CassandraHosts = ["127.0.0.1"]
+CassandraPort = 9042
+ListenPort = 8181
