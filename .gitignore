@@ -12,3 +12,5 @@ server/abc.log
 dbreplic
 .idea
 
+
+*.bin

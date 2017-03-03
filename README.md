@@ -47,7 +47,7 @@ SyncTables = [ "tr_f_user" ]
 
 # go-blackcat-web
 提供了一个blackcat的消息跟踪展示原始的web<br>
-编译: `env GOOS=linux GOARCH=amd64 go build -o go-blackcat-web-linux src/go-blackcat-web.go` <br>
+编译: `env GOOS=linux GOARCH=amd64 go build -o go-blackcat-web-linux.bin src/go-blackcat-web.go` <br>
 配置文件go-blackcat-web.toml:
 
 ```toml

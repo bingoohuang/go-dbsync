@@ -92,7 +92,7 @@ func IndexHandler(ctx *iris.Context) {
 </textarea>
 <br/>
 <input type="button" value="Query" onclick="queryLogs()">
-<input type="button" value="Clear Result" onclick="clearLogs()">
+<input type="button" value="Clear" onclick="clearLogs()">
 &nbsp;&nbsp;&nbsp; <input type="checkbox" id="preservResult">Preserve Result
 <br/>
 <div id="output"></div>
@@ -104,6 +104,7 @@ function $(id) {
 
 function clearLogs() {
 	$("output").innerText = ""
+	$("traceids").value = ""
 }
 
 function queryLogs() {
