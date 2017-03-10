@@ -65,7 +65,8 @@ func GoIpAllowHandler(ctx *iris.Context) {
 		return
 	}
 
-	mobile, _ := ioutil.ReadFile(officeIp + ".mobile")
+	officeIpMobileFile := officeIp + ".mobile"
+	mobile, _ := ioutil.ReadFile(officeIpMobileFile)
 	// curl -d "mobile=15951771111&path=iplogin&captcha=3232" http://127.0.0.1:8020/v1/notify/verify-captcha
 	out, err := exec.Command("curl", "-d", `mobile=` + string(mobile) +
 		`&path=iplogin&captcha=` + smsCode, config.VerifyCaptcha).Output()
@@ -91,6 +92,7 @@ func GoIpAllowHandler(ctx *iris.Context) {
 		content += "\n" + officeIp
 		ioutil.WriteFile("AllowIps.txt", []byte(content), 0644)
 
+		os.Remove(officeIpMobileFile)
 		ctx.WriteString(`设置成功`)
 	}
 }
