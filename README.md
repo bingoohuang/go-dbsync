@@ -56,3 +56,32 @@ CassandraPort = 9042
 ListenPort = 8181
 ```
 启动: `./nohup ./go-blackcat-web-linux ./go-blackcat-web.toml 2>&1 > go-blackcat-web.log  &`
+
+
+# go-ip-allow
+build:`env GOOS=linux GOARCH=amd64 go build -o go-ip-allow.linux.bin src/go-ip-allow.go`<br/>
+config file go-ip-allow.toml:
+
+```toml
+Envs = [ "DEV", "TEST", "DEMO", "PRODUCT" ]
+Mobiles = ["18212345678"]
+MobileTags = ["BINGOO"]
+ListenPort = 8182
+SendCaptcha = "http://127.0.0.1:8020/v1/notify/send-captcha"
+VerifyCaptcha = "http://127.0.0.1:8020/v1/notify/verify-captcha"
+UpdateFirewallShell = "/home/ci/firewall/iphelp.sh"
+```
+bash scripts:
+```bash
+export http_proxy=http://127.0.0.1:9999
+export https_proxy=http://127.0.0.1:9999
+go get -v -u github.com/BurntSushi/toml
+go get -v -u gopkg.in/kataras/iris.v6
+```
+fish scripts:
+```fish
+set -x http_proxy http://127.0.0.1:9999
+set -x https_proxy http://127.0.0.1:9999
+go get -v -u github.com/BurntSushi/toml
+go get -v -u gopkg.in/kataras/iris.v6
+```
