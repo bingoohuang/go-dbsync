@@ -1,0 +1,7 @@
+Envs = [ "DEV", "TEST", "DEMO", "PRODUCT" ]
+Mobiles = ["18212345678"]
+MobileTags = ["BINGOO"]
+ListenPort = 8182
+SendCaptcha = "http://127.0.0.1:8020/v1/notify/send-captcha"
+VerifyCaptcha = "http://127.0.0.1:8020/v1/notify/verify-captcha"
+UpdateFirewallShell = "/home/ci/firewall/iphelp.sh"
