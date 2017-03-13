@@ -48,8 +48,8 @@ func main() {
 	app.Adapt(httprouter.New())
 
 	app.Get("/", goIpAllowIndexHandler) // 首页
-	app.Post("/smsCode", smsCodeHandler) // 首页
-	app.Post("/ipAllow", goIpAllowHandler) // 首页
+	app.Post("/smsCode", smsCodeHandler) // 发送验证码
+	app.Post("/ipAllow", goIpAllowHandler) // 设置IP权限
 	app.Listen(":" + strconv.Itoa(config.ListenPort))
 }
 
@@ -65,19 +65,18 @@ func goIpAllowHandler(ctx *iris.Context) {
 		return
 	}
 
-	officeIpMobileFile := officeIp + ".mobile"
-	mobile, _ := ioutil.ReadFile(officeIpMobileFile)
+	mobile, _ := ioutil.ReadFile(officeIp + ".mobile")
 	// curl -d "mobile=15951771111&path=iplogin&captcha=3232" http://127.0.0.1:8020/v1/notify/verify-captcha
 	out, err := exec.Command("curl", "-d", `mobile=` + string(mobile) +
 		`&path=iplogin&captcha=` + smsCode, config.VerifyCaptcha).Output()
 	if err != nil {
-		ctx.WriteString(`设置失败` + err.Error());
+		ctx.WriteString(`设置失败，发送短信错误` + err.Error());
 		return
 	} else {
 		curlOut := string(out)
 		fmt.Println(curlOut)
 		if "true" != strings.TrimSpace(curlOut) {
-			ctx.WriteString(`设置失败` + curlOut);
+			ctx.WriteString(`设置失败，发送短信返回` + curlOut);
 			return
 		}
 	}
@@ -90,7 +89,7 @@ func goIpAllowHandler(ctx *iris.Context) {
 
 	out, err = exec.Command("/bin/bash", config.UpdateFirewallShell, env, allowedIps).Output()
 	if err != nil {
-		ctx.WriteString(`设置失败` + err.Error());
+		ctx.WriteString(`设置失败，执行SHELL错误` + err.Error());
 		return
 	}
 
@@ -98,7 +97,7 @@ func goIpAllowHandler(ctx *iris.Context) {
 	fmt.Println(shellOut)
 	writeAllowIpFile(env, allowedIps)
 
-	os.Remove(officeIpMobileFile)
+	os.Remove(officeIp + ".mobile")
 	ctx.WriteString(`设置成功`)
 }
 
