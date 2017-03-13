@@ -15,7 +15,7 @@ import (
 	"os/exec"
 )
 
-type GoIpAllowConfig struct {
+type goIpAllowConfig struct {
 	Envs                []string // 环境
 	Mobiles             []string // 可以用于短信验证码校验的手机号码
 	MobileTags          []string // 手机号码对应的人员标记，比如King，ZCX
@@ -25,13 +25,13 @@ type GoIpAllowConfig struct {
 	UpdateFirewallShell string   // 更新防火墙IP脚本
 }
 
-func ReadIpAllowConfig() GoIpAllowConfig {
+func readIpAllowConfig() goIpAllowConfig {
 	fpath := "go-ip-allow.toml"
 	if len(os.Args) > 1 {
 		fpath = os.Args[1]
 	}
 
-	config := GoIpAllowConfig{}
+	config := goIpAllowConfig{}
 	if _, err := toml.DecodeFile(fpath, &config); err != nil {
 		myutil.CheckErr(err)
 	}
@@ -39,27 +39,27 @@ func ReadIpAllowConfig() GoIpAllowConfig {
 	return config
 }
 
-var config GoIpAllowConfig
+var config goIpAllowConfig
 
 func main() {
-	config = ReadIpAllowConfig()
+	config = readIpAllowConfig()
 
 	app := iris.New()
 	app.Adapt(httprouter.New())
 
-	app.Get("/", GoIpAllowIndexHandler) // 首页
-	app.Post("/smsCode", SmsCodeHandler) // 首页
-	app.Post("/ipAllow", GoIpAllowHandler) // 首页
+	app.Get("/", goIpAllowIndexHandler) // 首页
+	app.Post("/smsCode", smsCodeHandler) // 首页
+	app.Post("/ipAllow", goIpAllowHandler) // 首页
 	app.Listen(":" + strconv.Itoa(config.ListenPort))
 }
 
-func GoIpAllowHandler(ctx *iris.Context) {
+func goIpAllowHandler(ctx *iris.Context) {
 	officeIp := ctx.FormValue("officeIp")
 	smsCode := ctx.FormValue("smsCode")
 	env := ctx.FormValue("env")
 	fmt.Println("smsCode:", smsCode, ",officeIp:", officeIp, ",env:", env)
 
-	alreadyAllowed, content := isIpAlreadyAllowed(officeIp)
+	alreadyAllowed, allowedIps := isIpAlreadyAllowed(env, officeIp)
 	if alreadyAllowed {
 		ctx.WriteString(officeIp + `已设置，请不要重复设置`)
 		return
@@ -82,38 +82,32 @@ func GoIpAllowHandler(ctx *iris.Context) {
 		}
 	}
 
-	out, err = exec.Command("/bin/bash", config.UpdateFirewallShell, env, officeIp).Output()
+	if allowedIps == "" {
+		allowedIps = officeIp
+	} else {
+		allowedIps += "," + officeIp
+	}
+
+	out, err = exec.Command("/bin/bash", config.UpdateFirewallShell, env, allowedIps).Output()
 	if err != nil {
 		ctx.WriteString(`设置失败` + err.Error());
 		return
-	} else {
-		shellOut := string(out)
-		fmt.Println(shellOut)
-		content += "\n" + officeIp
-		ioutil.WriteFile("AllowIps.txt", []byte(content), 0644)
-
-		os.Remove(officeIpMobileFile)
-		ctx.WriteString(`设置成功`)
-	}
-}
-
-func isIpAlreadyAllowed(ip string) (bool, string) {
-	content, err := ioutil.ReadFile("AllowIps.txt")
-	if err != nil {
-		return false, ""
 	}
 
-	strContent := string(content)
-	lines := strings.Split(strContent, "\n")
-	isInArray, _ := in_array(ip, lines)
-	return isInArray, strContent
+	shellOut := string(out)
+	fmt.Println(shellOut)
+	writeAllowIpFile(env, allowedIps)
+
+	os.Remove(officeIpMobileFile)
+	ctx.WriteString(`设置成功`)
 }
 
-func SmsCodeHandler(ctx *iris.Context) {
+func smsCodeHandler(ctx *iris.Context) {
 	ctx.Header().Set("Content-Type", "application/json")
 
 	officeIp := ctx.FormValue("officeIp")
-	if ok, _ := isIpAlreadyAllowed(officeIp); ok {
+	env := ctx.FormValue("env")
+	if ok, _ := isIpAlreadyAllowed(env, officeIp); ok {
 		ctx.WriteString(`{"ok":false,"msg":"IP已设置，请不要重复设置"}`)
 		return
 	}
@@ -135,16 +129,22 @@ func SmsCodeHandler(ctx *iris.Context) {
 	}
 }
 
-func in_array(val string, array []string) (ok bool, i int) {
-	for i = range array {
-		if ok = array[i] == val; ok {
-			return
-		}
+func isIpAlreadyAllowed(env, ip string) (bool, string) {
+	content, err := ioutil.ReadFile(env + "-AllowIps.txt")
+	if err != nil {
+		return false, ""
 	}
-	return
+
+	strContent := string(content)
+	alreadyAllowed := strings.Contains(strContent, ip)
+	return alreadyAllowed, strContent
 }
 
-func GoIpAllowIndexHandler(ctx *iris.Context) {
+func writeAllowIpFile(env, content string) {
+	ioutil.WriteFile(env + "-AllowIps.txt", []byte(content), 0644)
+}
+
+func goIpAllowIndexHandler(ctx *iris.Context) {
 	envCheckboxes := ""
 	for _, env := range config.Envs {
 		envCheckboxes += fmt.Sprintf("<input type='radio' name='env' value='%v'>%v</input>", env, env)
@@ -190,6 +190,7 @@ function sendSmsCode() {
 		url:"/smsCode",
 		type:"POST",
 		data: {
+			env: document.envForm.env.value,
 			officeIp: $('myip').innerText
 		},
 		success: function(rsp){
