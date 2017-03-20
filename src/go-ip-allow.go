@@ -56,10 +56,10 @@ func main() {
 func goIpAllowHandler(ctx *iris.Context) {
 	officeIp := ctx.FormValue("officeIp")
 	smsCode := ctx.FormValue("smsCode")
-	env := ctx.FormValue("env")
-	fmt.Println("smsCode:", smsCode, ",officeIp:", officeIp, ",env:", env)
+	envs := ctx.FormValue("envs")
+	fmt.Println("smsCode:", smsCode, ",officeIp:", officeIp, ",env:", envs)
 
-	alreadyAllowed, allowedIps := isIpAlreadyAllowed(env, officeIp)
+	alreadyAllowed, allowedIps := isIpAlreadyAllowed(envs, officeIp)
 	if alreadyAllowed {
 		ctx.WriteString(officeIp + `已设置，请不要重复设置`)
 		return
@@ -87,7 +87,7 @@ func goIpAllowHandler(ctx *iris.Context) {
 		allowedIps += "," + officeIp
 	}
 
-	out, err = exec.Command("/bin/bash", config.UpdateFirewallShell, env, allowedIps).Output()
+	out, err = exec.Command("/bin/bash", config.UpdateFirewallShell, envs, allowedIps).Output()
 	if err != nil {
 		ctx.WriteString(`设置失败，执行SHELL错误` + err.Error());
 		return
@@ -95,7 +95,7 @@ func goIpAllowHandler(ctx *iris.Context) {
 
 	shellOut := string(out)
 	fmt.Println(shellOut)
-	writeAllowIpFile(env, allowedIps)
+	writeAllowIpFile(envs, allowedIps)
 
 	os.Remove(officeIp + ".mobile")
 	ctx.WriteString(`设置成功`)
@@ -105,8 +105,8 @@ func smsCodeHandler(ctx *iris.Context) {
 	ctx.Header().Set("Content-Type", "application/json")
 
 	officeIp := ctx.FormValue("officeIp")
-	env := ctx.FormValue("env")
-	if ok, _ := isIpAlreadyAllowed(env, officeIp); ok {
+	envs := ctx.FormValue("envs")
+	if ok, _ := isIpAlreadyAllowed(envs, officeIp); ok {
 		ctx.WriteString(`{"ok":false,"msg":"IP已设置，请不要重复设置"}`)
 		return
 	}
@@ -121,15 +121,14 @@ func smsCodeHandler(ctx *iris.Context) {
 	if err != nil {
 		fmt.Println("err:" + err.Error())
 		ctx.WriteString(`{"ok":false,"msg":"` + err.Error() + `"}`)
-		return
 	} else {
 		fmt.Println("out:" + string(out))
 		ctx.WriteString(`{"ok":true,"tag":"` + config.MobileTags[randMobileIndex] + `"}`)
 	}
 }
 
-func isIpAlreadyAllowed(env, ip string) (bool, string) {
-	content, err := ioutil.ReadFile(env + "-AllowIps.txt")
+func isIpAlreadyAllowed(envs, ip string) (bool, string) {
+	content, err := ioutil.ReadFile(envs + "-AllowIps.txt")
 	if err != nil {
 		return false, ""
 	}
@@ -146,7 +145,7 @@ func writeAllowIpFile(env, content string) {
 func goIpAllowIndexHandler(ctx *iris.Context) {
 	envCheckboxes := ""
 	for _, env := range config.Envs {
-		envCheckboxes += fmt.Sprintf("<input type='radio' name='env' value='%v'>%v</input>", env, env)
+		envCheckboxes += fmt.Sprintf("<input class='env' type='checkbox' value='%v'>%v</input><br/>", env, env)
 	}
 	ctx.WriteString(`
 <html>
@@ -158,13 +157,13 @@ func goIpAllowIndexHandler(ctx *iris.Context) {
 <br/>
 <iframe id="iframe" src="http://1212.ip138.com/ic.asp" rel="nofollow" frameborder="0" scrolling="no"
  style="width:100%;height:30px"></iframe>
-<br/><form name="envForm">` + envCheckboxes + `</form>
+<br/><div style="width: 200px;margin: 0 auto;text-align: left;">` + envCheckboxes + `</div>
 <br/>
 请输入验证码：<input type="input" id="smsCode" style="width:60px"/>
-<input type="button" value="发验证码" onclick="sendSmsCode()"/>
+<button onclick="sendSmsCode()" style="font-size: 14px;">发验证码</button>
 <span id="smsCodeTarget"></span>
-<br/>
-<input type="button" value="设置" onclick="setIpAllow()"/>
+<br/><br/>
+<button onclick="setIpAllow()" style="font-size: 14px; padding: 3px 106px; ">设置</button>
 </div>
 
 </body>
@@ -174,7 +173,7 @@ function setIpAllow() {
 		url:"/ipAllow",
 		type:"POST",
 		data: {
-			env: document.envForm.env.value,
+			envs: getCheckedValues('env'),
 			officeIp:$('myip').innerText,
 			smsCode:$('smsCode').value
 		},
@@ -189,18 +188,30 @@ function sendSmsCode() {
 		url:"/smsCode",
 		type:"POST",
 		data: {
-			env: document.envForm.env.value,
+			envs: getCheckedValues('env'),
 			officeIp: $('myip').innerText
 		},
 		success: function(rsp){
 			var data = JSON.parse(rsp)
 			if (data.ok) {
-				$('smsCodeTarget').innerText = "验证码已发到" + data.tag +"，5分内有效";
+				$('smsCodeTarget').innerText = "已发到" + data.tag +"，5分内有效";
+				$('smsCode').focus()
 			} else {
 				alert(data.msg)
 			}
 		}
 	})
+}
+
+function getCheckedValues(checkboxClass) {
+	var checkedValue = []
+	var inputElements = document.getElementsByClassName(checkboxClass)
+	for(var i = 0; inputElements[i]; ++i){
+	      if(inputElements[i].checked){
+		   checkedValue.push(inputElements[i].value)
+	      }
+	}
+	return checkedValue.join(',')
 }
 
 function $(id) {
