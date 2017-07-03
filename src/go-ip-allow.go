@@ -3,16 +3,16 @@ package main
 import (
 	"./myutil"
 
-	"os"
+	"fmt"
 	"github.com/BurntSushi/toml"
 	"gopkg.in/kataras/iris.v6"
 	"gopkg.in/kataras/iris.v6/adaptors/httprouter"
-	"strconv"
-	"fmt"
-	"math/rand"
 	"io/ioutil"
-	"strings"
+	"math/rand"
+	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 )
 
 type goIpAllowConfig struct {
@@ -31,26 +31,26 @@ func readIpAllowConfig() goIpAllowConfig {
 		fpath = os.Args[1]
 	}
 
-	config := goIpAllowConfig{}
-	if _, err := toml.DecodeFile(fpath, &config); err != nil {
+	ipAllowConfig := goIpAllowConfig{}
+	if _, err := toml.DecodeFile(fpath, &ipAllowConfig); err != nil {
 		myutil.CheckErr(err)
 	}
 
-	return config
+	return ipAllowConfig
 }
 
-var config goIpAllowConfig
+var g_config goIpAllowConfig
 
 func main() {
-	config = readIpAllowConfig()
+	g_config = readIpAllowConfig()
 
 	app := iris.New()
 	app.Adapt(httprouter.New())
 
-	app.Get("/", goIpAllowIndexHandler) // 首页
-	app.Post("/smsCode", smsCodeHandler) // 发送验证码
+	app.Get("/", goIpAllowIndexHandler)    // 首页
+	app.Post("/smsCode", smsCodeHandler)   // 发送验证码
 	app.Post("/ipAllow", goIpAllowHandler) // 设置IP权限
-	app.Listen(":" + strconv.Itoa(config.ListenPort))
+	app.Listen(":" + strconv.Itoa(g_config.ListenPort))
 }
 
 func goIpAllowHandler(ctx *iris.Context) {
@@ -67,16 +67,16 @@ func goIpAllowHandler(ctx *iris.Context) {
 
 	mobile, _ := ioutil.ReadFile(officeIp + ".mobile")
 	// curl -d "mobile=15951771111&path=iplogin&captcha=3232" http://127.0.0.1:8020/v1/notify/verify-captcha
-	out, err := exec.Command("curl", "-d", `mobile=` + string(mobile) +
-		`&path=iplogin&captcha=` + smsCode, config.VerifyCaptcha).Output()
+	out, err := exec.Command("curl", "-d", `mobile=`+string(mobile)+
+		`&path=iplogin&captcha=`+smsCode, g_config.VerifyCaptcha).Output()
 	if err != nil {
-		ctx.WriteString(`设置失败，发送短信错误` + err.Error());
+		ctx.WriteString(`设置失败，发送短信错误` + err.Error())
 		return
 	} else {
 		curlOut := string(out)
 		fmt.Println(curlOut)
 		if "true" != strings.TrimSpace(curlOut) {
-			ctx.WriteString(`设置失败，发送短信返回` + curlOut);
+			ctx.WriteString(`设置失败，发送短信返回` + curlOut)
 			return
 		}
 	}
@@ -87,9 +87,9 @@ func goIpAllowHandler(ctx *iris.Context) {
 		allowedIps += "," + officeIp
 	}
 
-	out, err = exec.Command("/bin/bash", config.UpdateFirewallShell, envs, allowedIps).Output()
+	out, err = exec.Command("/bin/bash", g_config.UpdateFirewallShell, envs, allowedIps).Output()
 	if err != nil {
-		ctx.WriteString(`设置失败，执行SHELL错误` + err.Error());
+		ctx.WriteString(`设置失败，执行SHELL错误` + err.Error())
 		return
 	}
 
@@ -106,25 +106,37 @@ func smsCodeHandler(ctx *iris.Context) {
 
 	officeIp := ctx.FormValue("officeIp")
 	envs := ctx.FormValue("envs")
+	smsTarget := ctx.FormValue("smsTarget")
+
 	if ok, _ := isIpAlreadyAllowed(envs, officeIp); ok {
 		ctx.WriteString(`{"ok":false,"msg":"IP已设置，请不要重复设置"}`)
 		return
 	}
 
-	randMobileIndex := rand.Intn(len(config.Mobiles))
+	smsMobile, smsMobileTag := parseSmsMobile(smsTarget)
 
-	// curl -d "mobile=18512345678&templateId=1020481&path=iplogin&validMinutes=15" http://127.0.0.1:8020/v1/notify/send-captcha
-	smsMobile := config.Mobiles[randMobileIndex]
-	ioutil.WriteFile(officeIp + ".mobile", []byte(smsMobile), 0644)
-	out, err := exec.Command("curl", "-d", `mobile=` + smsMobile +
-		`&templateId=1020481&path=iplogin&validMinutes=15`, config.SendCaptcha).Output()
+	ioutil.WriteFile(officeIp+".mobile", []byte(smsMobile), 0644)
+	out, err := exec.Command("curl", "-d", `mobile=`+smsMobile+
+		`&templateId=1020481&path=iplogin&validMinutes=15`, g_config.SendCaptcha).Output()
 	if err != nil {
 		fmt.Println("err:" + err.Error())
 		ctx.WriteString(`{"ok":false,"msg":"` + err.Error() + `"}`)
 	} else {
 		fmt.Println("out:" + string(out))
-		ctx.WriteString(`{"ok":true,"tag":"` + config.MobileTags[randMobileIndex] + `"}`)
+		ctx.WriteString(`{"ok":true,"tag":"` + smsMobileTag + `"}`)
 	}
+}
+
+func parseSmsMobile(smsTarget string) (smsMobile, smsMobileTag string) {
+	for index, mobile := range g_config.Mobiles {
+		if mobile == smsTarget {
+			return g_config.Mobiles[index], g_config.MobileTags[index]
+		}
+	}
+
+	randMobileIndex := rand.Intn(len(g_config.Mobiles))
+	// curl -d "mobile=18512345678&templateId=1020481&path=iplogin&validMinutes=15" http://127.0.0.1:8020/v1/notify/send-captcha
+	return g_config.Mobiles[randMobileIndex], g_config.MobileTags[randMobileIndex]
 }
 
 func isIpAlreadyAllowed(envs, ip string) (bool, string) {
@@ -139,12 +151,12 @@ func isIpAlreadyAllowed(envs, ip string) (bool, string) {
 }
 
 func writeAllowIpFile(env, content string) {
-	ioutil.WriteFile(env + "-AllowIps.txt", []byte(content), 0644)
+	ioutil.WriteFile(env+"-AllowIps.txt", []byte(content), 0644)
 }
 
 func goIpAllowIndexHandler(ctx *iris.Context) {
 	envCheckboxes := ""
-	for _, env := range config.Envs {
+	for _, env := range g_config.Envs {
 		envCheckboxes += fmt.Sprintf("<input class='env' type='checkbox' value='%v'>%v</input><br/>", env, env)
 	}
 	ctx.WriteString(`
@@ -158,8 +170,9 @@ func goIpAllowIndexHandler(ctx *iris.Context) {
 <iframe id="iframe" src="http://1212.ip138.com/ic.asp" rel="nofollow" frameborder="0" scrolling="no"
  style="width:100%;height:30px"></iframe>
 <br/><div style="width: 200px;margin: 0 auto;text-align: left;">` + envCheckboxes + `</div>
-<br/>
-请输入验证码：<input type="input" id="smsCode" style="width:60px"/>
+<br/> 验证码发送到：<input type="input" id="smsTarget" style="width:60px"/>
+<label style="font-size: 14px;">(输入人名)</label>
+<br/> 请输入验证码：<input type="input" id="smsCode" style="width:60px"/>
 <button onclick="sendSmsCode()" style="font-size: 14px;">发验证码</button>
 <span id="smsCodeTarget"></span>
 <br/><br/>
@@ -189,7 +202,8 @@ function sendSmsCode() {
 		type:"POST",
 		data: {
 			envs: getCheckedValues('env'),
-			officeIp: $('myip').innerText
+			officeIp: $('myip').innerText,
+			smsTarget: $('smsTarget').value
 		},
 		success: function(rsp){
 			var data = JSON.parse(rsp)
