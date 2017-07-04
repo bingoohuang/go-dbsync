@@ -128,8 +128,8 @@ func smsCodeHandler(ctx *iris.Context) {
 }
 
 func parseSmsMobile(smsTarget string) (smsMobile, smsMobileTag string) {
-	for index, mobile := range g_config.Mobiles {
-		if mobile == smsTarget {
+	for index, mobileTag := range g_config.MobileTags {
+		if mobileTag == smsTarget {
 			return g_config.Mobiles[index], g_config.MobileTags[index]
 		}
 	}
