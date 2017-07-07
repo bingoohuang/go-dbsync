@@ -11,6 +11,7 @@ server/abc.log
 *.log
 dbreplic
 .idea
+.DS_Store
 
 
 *.bin

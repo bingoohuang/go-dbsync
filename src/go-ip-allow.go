@@ -221,9 +221,9 @@ function getCheckedValues(checkboxClass) {
 	var checkedValue = []
 	var inputElements = document.getElementsByClassName(checkboxClass)
 	for(var i = 0; inputElements[i]; ++i){
-	      if(inputElements[i].checked){
-		   checkedValue.push(inputElements[i].value)
-	      }
+		if(inputElements[i].checked){
+			checkedValue.push(inputElements[i].value)
+		}
 	}
 	return checkedValue.join(',')
 }
@@ -231,11 +231,12 @@ function getCheckedValues(checkboxClass) {
 function $(id) {
 	return document.getElementById(id)
 }
-
+` +
 /*|--(A Minimalistic Pure JavaScript Header for Ajax POST/GET Request )--|
   |--Author : flouthoc (gunnerar7@gmail.com)(http://github.com/flouthoc)--|
   */
-function initXMLhttp() {
+
+`function initXMLhttp() {
 	if (window.XMLHttpRequest) { // code for IE7,firefox chrome and above
 		return new XMLHttpRequest()
 	} else { // code for Internet Explorer
@@ -243,19 +244,17 @@ function initXMLhttp() {
 	}
 }
 
-function minAjax(config) {
+function minAjax(config) {` +
 	/*
 	Config Structure
 	url:"reqesting URL"
 	type:"GET or POST"
-	method: "(OPTIONAL) True for async and False for Non-async | By default its Async"
+	async: "(OPTIONAL) True for async and False for Non-async | By default its Async"
 	data: "(OPTIONAL) another Nested Object which should contains reqested Properties in form of Object Properties"
 	success: "(OPTIONAL) Callback function to process after response | function(data,status)"
 	*/
 
-	if (!config.method) {
-		config.method = true
-	}
+`	config.async = config.async || true
 
 	var xmlhttp = initXMLhttp()
 	xmlhttp.onreadystatechange = function() {
@@ -286,10 +285,10 @@ function minAjax(config) {
 	sendString = sendString.join('&')
 
 	if (config.type == "GET") {
-		xmlhttp.open("GET", config.url + "?" + sendString, config.method)
+		xmlhttp.open("GET", config.url + "?" + sendString, config.async)
 		xmlhttp.send()
 	} else if (config.type == "POST") {
-		xmlhttp.open("POST", config.url, config.method)
+		xmlhttp.open("POST", config.url, config.async)
 		xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded")
 		xmlhttp.send(sendString)
 	}
