@@ -52,6 +52,10 @@ func readFileIfModified(lastMod time.Time, seekPos, endPos int64, filterKeyword 
 }
 
 func containsAny(str string, sub []string) bool {
+	if len(sub) == 0 {
+		return true;
+	}
+
 	for _, v := range sub {
 		if strings.Contains(str, v) {
 			return true
@@ -71,26 +75,27 @@ func readContent(input io.ReadSeeker, startPos, endPos int64, filterKeyword stri
 	pos := startPos
 	for endPos < 0 || pos < endPos {
 		data, err := reader.ReadBytes('\n')
-		len := len(data)
-		pos += int64(len)
-		if err == nil || err == io.EOF {
-			if firstLine { // jump the first line because of it may be not full.
-				firstLine = false
-				continue
-			}
-			if len > 0 {
-				line := string(data)
-				if filterKeyword == "" || containsAny(line, subs) {
-					buffer.WriteString(line)
-				}
-			} else {
-				break
-			}
-		} else if err != nil {
+		if err != nil {
 			if err == io.EOF {
 				break
 			}
 			return nil, pos, err
+		}
+
+		len := len(data)
+		if len == 0 {
+			break
+		}
+
+		pos += int64(len)
+		if firstLine {
+			// jump the first line because of it may be not full.
+			firstLine = false
+			continue
+		}
+		line := string(data)
+		if containsAny(line, subs) {
+			buffer.WriteString(line)
 		}
 	}
 
@@ -98,10 +103,15 @@ func readContent(input io.ReadSeeker, startPos, endPos int64, filterKeyword stri
 }
 func splitTrim(filterKeyword string) []string {
 	subs := strings.Split(filterKeyword, ",")
+	ret := make([]string, 0)
 	for i, v := range subs {
-		subs[i] = strings.TrimSpace(v)
+		v := strings.TrimSpace(v)
+		if len(subs[i]) > 0 {
+			ret = append(ret, v)
+		}
 	}
-	return subs
+
+	return ret
 }
 
 func hexString(val int64) string {
@@ -133,32 +143,32 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 func locateLines(input *os.File, locateStart string, w http.ResponseWriter) {
 	reader := bufio.NewReader(input)
 	locateStartFound := false
-	lastLine := ""
+	prevLine := ""
 	for {
 		data, err := reader.ReadBytes('\n')
-		if err == nil || err == io.EOF {
-			if len(data) > 0 {
-				line := string(data)
-				if strings.HasPrefix(line, locateStart) { // 找到了
-					if !locateStartFound {
-						w.Write([]byte(lastLine))
-						locateStartFound = true
-					}
-					w.Write(data)
-				} else if locateStartFound { // 结束查找
-					w.Write(data)
-					break;
-				} else {
-					lastLine = line
-				}
-			} else {
-				break
-			}
-		} else if err != nil {
+		if err != nil {
 			if err != io.EOF {
 				w.Write([]byte(err.Error()))
 			}
 			break
+		}
+
+		if len(data) == 0 {
+			break
+		}
+
+		line := string(data)
+		if strings.HasPrefix(line, locateStart) { // 找到了
+			if !locateStartFound {
+				w.Write([]byte(prevLine)) // 写入定位前面一行
+				locateStartFound = true
+			}
+			w.Write(data)
+		} else if locateStartFound { // 结束查找
+			w.Write(data) // 写入定位下面一行
+			break;
+		} else {
+			prevLine = line
 		}
 	}
 }
@@ -236,10 +246,10 @@ const homeHTML = `<!DOCTYPE html>
 	width:300px;
 }
 .pre-wrap {
-	 white-space: pre-wrap;
+	white-space: pre-wrap;
 }
 button {
-	padding:3px 50px;
+	padding:3px 10px;
 }
 </style>
 <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
