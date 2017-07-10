@@ -247,11 +247,13 @@ const homeHTML = `<!DOCTYPE html>
 	top:5px;
 	background-color: azure;
 	width: 100%;
+	font-size: 12px;
 }
 #filterKeyword {
 	width:300px;
 }
 .pre-wrap {
+	font-size: 10px;
 	margin-top: 30px;
 	white-space: pre-wrap;
 }
@@ -333,6 +335,8 @@ button {
 		if (checked) {
 			 refreshTimer = setInterval(tailFunction, 3000)
 		}
+		$('#refreshButton').prop("disabled", checked);
+		$('#locateButton').prop("disabled", checked);
 	}
 	$("#autoRefreshCheckbox").click(autoRefreshClick)
 	autoRefreshClick()
