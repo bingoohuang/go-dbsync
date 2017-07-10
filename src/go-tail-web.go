@@ -171,7 +171,7 @@ button {
 	padding:3px 50px;
 }
 </style>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
 </head>
 <body>
 	<pre id="fileDataPre">{{.Data}}</pre>
