@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"bytes"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -19,7 +20,7 @@ var (
 	homeTempl   = template.Must(template.New("").Parse(homeHTML))
 )
 
-func readFileIfModified(lastMod time.Time, seekPos, endPos int64) ([]byte, time.Time, int64, error) {
+func readFileIfModified(lastMod time.Time, seekPos, endPos int64, filterKeyword string) ([]byte, time.Time, int64, error) {
 	fi, err := os.Stat(*logFileName)
 	if err != nil {
 		return nil, lastMod, 0, err
@@ -42,11 +43,11 @@ func readFileIfModified(lastMod time.Time, seekPos, endPos int64) ([]byte, time.
 		return nil, lastMod, fi.Size(), err
 	}
 
-	p, lastPos, err := readContent(input, seekPos, endPos)
+	p, lastPos, err := readContent(input, seekPos, endPos, filterKeyword)
 	return p, fi.ModTime(), lastPos, err
 }
 
-func readContent(input io.ReadSeeker, startPos, endPos int64) ([]byte, int64, error) {
+func readContent(input io.ReadSeeker, startPos, endPos int64, filterKeyword string) ([]byte, int64, error) {
 	r := bufio.NewReader(input)
 
 	var buffer bytes.Buffer
@@ -62,7 +63,10 @@ func readContent(input io.ReadSeeker, startPos, endPos int64) ([]byte, int64, er
 				continue;
 			}
 			if len > 0 {
-				buffer.Write(data)
+				line := string(data)
+				if filterKeyword == "" || strings.Contains(line, filterKeyword) {
+					buffer.WriteString(line)
+				}
 			} else {
 				break
 			}
@@ -94,7 +98,9 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 
 	seekPos, err := parseHex(r.FormValue("seekPos"))
 
-	p, lastMod, seekPos, err := readFileIfModified(lastMod, seekPos, -1)
+	filterKeyword := r.FormValue("filterKeyword")
+
+	p, lastMod, seekPos, err := readFileIfModified(lastMod, seekPos, -1, filterKeyword)
 	if err != nil {
 		log.Println("readFileIfModified error", err)
 		return
@@ -115,7 +121,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	p, lastMod, fileSize, err := readFileIfModified(time.Time{}, -600, -1)
+	p, lastMod, fileSize, err := readFileIfModified(time.Time{}, -600, -1, "")
 	if err != nil {
 		log.Println("readFileIfModified error", err)
 		p = []byte(err.Error())
@@ -151,6 +157,9 @@ const homeHTML = `<!DOCTYPE html>
 <head>
 <title>{{.LogFileName}}</title>
 <style>
+#filterKeyword {
+	width:300px;
+}
 .pre-wrap {
 	 white-space: pre-wrap;
 }
@@ -162,6 +171,7 @@ button {
 </head>
 <body>
 	<pre id="fileDataPre">{{.Data}}</pre>
+	<input type="text" id="filterKeyword" placeholder="请输入过滤关键字"></input>
 	<input type="checkbox" id="toggleWrapCheckbox" checked="checked">自动换行</input>
 	<input type="checkbox" id="autoRefreshCheckbox" checked="checked">自动刷新</input>
 	<button id="refreshButton">刷新</button>
@@ -177,11 +187,12 @@ button {
 
 	var tailFunction = function() {
 		$.ajax({
-			type: 'GET',
+			type: 'POST',
 			url: "/tail",
 			data: {
 				seekPos: seekPos,
-				lastMod: lastMod
+				lastMod: lastMod,
+				filterKeyword: $('#filterKeyword').val()
 			},
 			success: function(content, textStatus, request){
 				seekPos = request.getResponseHeader('seek-pos')
