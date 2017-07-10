@@ -51,7 +51,22 @@ func readFileIfModified(lastMod time.Time, seekPos, endPos int64, filterKeyword 
 	return p, fi.ModTime(), lastPos, err
 }
 
+func containsAny(str string, sub []string) bool {
+	for _, v := range sub {
+		if strings.Contains(str, v) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func readContent(input io.ReadSeeker, startPos, endPos int64, filterKeyword string) ([]byte, int64, error) {
+	subs := strings.Split(filterKeyword, ",")
+	for i, v := range subs {
+		subs[i] = strings.TrimSpace(v)
+	}
+
 	r := bufio.NewReader(input)
 
 	var buffer bytes.Buffer
@@ -68,7 +83,7 @@ func readContent(input io.ReadSeeker, startPos, endPos int64, filterKeyword stri
 			}
 			if len > 0 {
 				line := string(data)
-				if filterKeyword == "" || strings.Contains(line, filterKeyword) {
+				if filterKeyword == "" || containsAny(line, subs) {
 					buffer.WriteString(line)
 				}
 			} else {
@@ -91,6 +106,54 @@ func hexString(val int64) string {
 
 func parseHex(val string) (int64, error) {
 	return strconv.ParseInt(val, 16, 64)
+}
+
+func serveLocate(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	locateStart := req.FormValue("locateStart")
+	if locateStart == "" {
+		w.Write([]byte("必须指定定位开始字符串"))
+		return
+	}
+
+	input, err := os.Open(*logFileName)
+	if err != nil {
+		w.Write([]byte(err.Error()))
+		return
+	}
+	defer input.Close()
+
+	r := bufio.NewReader(input)
+
+	locateStartFound := false
+	lastLine := ""
+	for {
+		data, err := r.ReadBytes('\n')
+		if err == nil || err == io.EOF {
+			if len(data) > 0 {
+				line := string(data)
+				if strings.HasPrefix(line, locateStart) { // 找到了
+					if !locateStartFound {
+						w.Write([]byte(lastLine))
+						locateStartFound = true
+					}
+					w.Write(data)
+				} else if locateStartFound { // 结束查找
+					w.Write(data)
+					break;
+				} else {
+					lastLine = line
+				}
+			} else {
+				break
+			}
+		} else if err != nil {
+			if err != io.EOF {
+				w.Write([]byte(err.Error()))
+			}
+			break
+		}
+	}
 }
 
 func serveTail(w http.ResponseWriter, r *http.Request) {
@@ -125,7 +188,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	p, lastMod, fileSize, err := readFileIfModified(time.Time{}, -600, -1, "")
+	p, lastMod, fileSize, err := readFileIfModified(time.Time{}, -6000, -1, "")
 	if err != nil {
 		log.Println("readFileIfModified error", err)
 		p = []byte(err.Error())
@@ -151,6 +214,7 @@ func main() {
 
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/tail", serveTail)
+	http.HandleFunc("/locate", serveLocate)
 	if err := http.ListenAndServe(":" + *port, nil); err != nil {
 		log.Fatal(err)
 	}
@@ -180,6 +244,8 @@ button {
 	<input type="checkbox" id="autoRefreshCheckbox">自动刷新</input>
 	<button id="refreshButton">刷新</button>
 	<button id="clearButton">清空</button>
+	<input type="text" id="locateStart" placeholder="2017-10-07 18:50"></input>
+	<button id="locateButton">定位</button>
 <script type="text/javascript">
 (function() {
 	var seekPos = "{{.SeekPos}}"
@@ -246,6 +312,27 @@ button {
 	autoRefreshClick()
 
 	scrollToBottom()
+
+	$('#locateButton').click(function() {
+		$.ajax({
+			type: 'POST',
+			url: pathname + "/locate",
+			data: {
+				locateStart: $('#locateStart').val()
+			},
+			success: function(content, textStatus, request){
+				if (content != "" ) {
+					$("#fileDataPre").text(content)
+					scrollToBottom()
+				} else {
+					$("#fileDataPre").text("empty content")
+				}
+			},
+			error: function (request, textStatus, errorThrown) {
+				// alert("")
+			}
+		})
+	})
 })()
 </script>
 </body>
