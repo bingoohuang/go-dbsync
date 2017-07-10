@@ -14,13 +14,13 @@ import (
 )
 
 var (
-	addr      = flag.String("addr", ":8080", "http service address")
-	homeTempl = template.Must(template.New("").Parse(homeHTML))
-	filename  string
+	port        = flag.String("port", "8497", "tail log port number")
+	logFileName = flag.String("log", "", "tail log file path")
+	homeTempl   = template.Must(template.New("").Parse(homeHTML))
 )
 
 func readFileIfModified(lastMod time.Time, seekPos, endPos int64) ([]byte, time.Time, int64, error) {
-	fi, err := os.Stat(filename)
+	fi, err := os.Stat(*logFileName)
 	if err != nil {
 		return nil, lastMod, 0, err
 	}
@@ -28,7 +28,7 @@ func readFileIfModified(lastMod time.Time, seekPos, endPos int64) ([]byte, time.
 		return nil, lastMod, fi.Size(), nil
 	}
 
-	input, err := os.Open(filename)
+	input, err := os.Open(*logFileName)
 	if err != nil {
 		return nil, lastMod, fi.Size(), err
 	}
@@ -123,27 +123,25 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var v = struct {
-		Data    string
-		SeekPos string
-		LastMod string
+		Data        string
+		SeekPos     string
+		LastMod     string
+		LogFileName string
 	}{
 		string(p),
 		hexString(fileSize),
 		hexString(lastMod.UnixNano()),
+		*logFileName,
 	}
 	homeTempl.Execute(w, &v)
 }
 
 func main() {
 	flag.Parse()
-	if flag.NArg() != 1 {
-		log.Fatal("filename not specified")
-	}
-	filename = flag.Args()[0]
 
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/tail", serveTail)
-	if err := http.ListenAndServe(*addr, nil); err != nil {
+	if err := http.ListenAndServe(":" + *port, nil); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -151,7 +149,7 @@ func main() {
 const homeHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
-<title>go tail web</title>
+<title>{{.LogFileName}}</title>
 <style>
 .pre-wrap {
 	 white-space: pre-wrap;
