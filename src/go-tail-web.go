@@ -62,18 +62,15 @@ func containsAny(str string, sub []string) bool {
 }
 
 func readContent(input io.ReadSeeker, startPos, endPos int64, filterKeyword string) ([]byte, int64, error) {
-	subs := strings.Split(filterKeyword, ",")
-	for i, v := range subs {
-		subs[i] = strings.TrimSpace(v)
-	}
+	subs := splitTrim(filterKeyword)
 
-	r := bufio.NewReader(input)
+	reader := bufio.NewReader(input)
 
 	var buffer bytes.Buffer
 	firstLine := true
 	pos := startPos
 	for endPos < 0 || pos < endPos {
-		data, err := r.ReadBytes('\n')
+		data, err := reader.ReadBytes('\n')
 		len := len(data)
 		pos += int64(len)
 		if err == nil || err == io.EOF {
@@ -99,6 +96,13 @@ func readContent(input io.ReadSeeker, startPos, endPos int64, filterKeyword stri
 
 	return buffer.Bytes(), pos, nil
 }
+func splitTrim(filterKeyword string) []string {
+	subs := strings.Split(filterKeyword, ",")
+	for i, v := range subs {
+		subs[i] = strings.TrimSpace(v)
+	}
+	return subs
+}
 
 func hexString(val int64) string {
 	return strconv.FormatInt(val, 16)
@@ -110,9 +114,9 @@ func parseHex(val string) (int64, error) {
 
 func serveLocate(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	locateStart := req.FormValue("locateStart")
+	locateStart := strings.TrimSpace(req.FormValue("locateStart"))
 	if locateStart == "" {
-		w.Write([]byte("必须指定定位开始字符串"))
+		w.Write([]byte("locateStart should be non empty"))
 		return
 	}
 
@@ -123,12 +127,15 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 	}
 	defer input.Close()
 
-	r := bufio.NewReader(input)
+	locateLines(input, locateStart, w)
+}
 
+func locateLines(input *os.File, locateStart string, w http.ResponseWriter) {
+	reader := bufio.NewReader(input)
 	locateStartFound := false
 	lastLine := ""
 	for {
-		data, err := r.ReadBytes('\n')
+		data, err := reader.ReadBytes('\n')
 		if err == nil || err == io.EOF {
 			if len(data) > 0 {
 				line := string(data)
