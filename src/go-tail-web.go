@@ -242,10 +242,17 @@ const homeHTML = `<!DOCTYPE html>
 <head>
 <title>{{.LogFileName}}</title>
 <style>
+#operateDiv {
+	position:fixed;
+	top:5px;
+	background-color: azure;
+	width: 100%;
+}
 #filterKeyword {
 	width:300px;
 }
 .pre-wrap {
+	margin-top: 30px;
 	white-space: pre-wrap;
 }
 button {
@@ -256,13 +263,15 @@ button {
 </head>
 <body>
 	<pre id="fileDataPre">{{.Data}}</pre>
-	<input type="text" id="filterKeyword" placeholder="请输入过滤关键字"></input>
-	<input type="checkbox" id="toggleWrapCheckbox">自动换行</input>
-	<input type="checkbox" id="autoRefreshCheckbox">自动刷新</input>
-	<button id="refreshButton">刷新</button>
-	<button id="clearButton">清空</button>
-	<input type="text" id="locateStart" placeholder="2017-10-07 18:50"></input>
-	<button id="locateButton">定位</button>
+	<div id="operateDiv">
+		<input type="text" id="filterKeyword" placeholder="请输入过滤关键字"></input>
+		<input type="checkbox" id="toggleWrapCheckbox">自动换行</input>
+		<input type="checkbox" id="autoRefreshCheckbox">自动刷新</input>
+		<button id="refreshButton">刷新</button>
+		<button id="clearButton">清空</button>
+		<input type="text" id="locateStart" placeholder="2017-10-07 18:50"></input>
+		<button id="locateButton">定位</button>
+	</div>
 <script type="text/javascript">
 (function() {
 	var seekPos = "{{.SeekPos}}"
