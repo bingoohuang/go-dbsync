@@ -37,7 +37,9 @@ func readFileIfModified(lastMod time.Time, seekPos, endPos int64, filterKeyword 
 
 	if seekPos < 0 {
 		seekPos = fi.Size() + seekPos
-	} else if seekPos > fi.Size() {
+	}
+
+	if seekPos < 0 || seekPos > fi.Size() {
 		seekPos = 0
 	}
 
@@ -182,6 +184,10 @@ button {
 (function() {
 	var seekPos = "{{.SeekPos}}"
 	var lastMod = "{{.LastMod}}"
+	var pathname = window.location.pathname
+	if (pathname == "/") {
+		pathname = ""
+	}
 
 	$('#clearButton').click(function() {
 		$('#fileDataPre').empty()
@@ -190,7 +196,7 @@ button {
 	var tailFunction = function() {
 		$.ajax({
 			type: 'POST',
-			url: window.location.pathname + "/tail",
+			url: pathname + "/tail",
 			data: {
 				seekPos: seekPos,
 				lastMod: lastMod,
