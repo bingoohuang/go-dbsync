@@ -37,6 +37,8 @@ func readFileIfModified(lastMod time.Time, seekPos, endPos int64, filterKeyword 
 
 	if seekPos < 0 {
 		seekPos = fi.Size() + seekPos
+	} else if seekPos > fi.Size() {
+		seekPos = 0
 	}
 
 	if _, err := input.Seek(seekPos, 0); err != nil {
@@ -60,7 +62,7 @@ func readContent(input io.ReadSeeker, startPos, endPos int64, filterKeyword stri
 		if err == nil || err == io.EOF {
 			if firstLine { // jump the first line because of it may be not full.
 				firstLine = false
-				continue;
+				continue
 			}
 			if len > 0 {
 				line := string(data)
@@ -188,7 +190,7 @@ button {
 	var tailFunction = function() {
 		$.ajax({
 			type: 'POST',
-			url: "/tail",
+			url: window.location.pathname + "/tail",
 			data: {
 				seekPos: seekPos,
 				lastMod: lastMod,
