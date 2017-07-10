@@ -176,8 +176,8 @@ button {
 <body>
 	<pre id="fileDataPre">{{.Data}}</pre>
 	<input type="text" id="filterKeyword" placeholder="请输入过滤关键字"></input>
-	<input type="checkbox" id="toggleWrapCheckbox" checked="checked">自动换行</input>
-	<input type="checkbox" id="autoRefreshCheckbox" checked="checked">自动刷新</input>
+	<input type="checkbox" id="toggleWrapCheckbox">自动换行</input>
+	<input type="checkbox" id="autoRefreshCheckbox">自动刷新</input>
 	<button id="refreshButton">刷新</button>
 	<button id="clearButton">清空</button>
 <script type="text/javascript">
