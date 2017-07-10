@@ -85,3 +85,7 @@ set -x https_proxy http://127.0.0.1:9999
 go get -v -u github.com/BurntSushi/toml
 go get -v -u gopkg.in/kataras/iris.v6
 ```
+
+# go-tail-web
+build:`env GOOS=linux GOARCH=amd64 go build -o go-tail-web.linux.bin src/go-tail-web.go`<br/>
+run:`./go-tail-web.linux -log=/Users/bingoo/gitlab/et-server/et.log -port=8497`
