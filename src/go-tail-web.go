@@ -151,7 +151,7 @@ func main() {
 const homeHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
-<title>WebSocket Example</title>
+<title>go tail web</title>
 <style>
 .pre-wrap {
 	 white-space: pre-wrap;
@@ -164,8 +164,8 @@ button {
 </head>
 <body>
 	<pre id="fileDataPre">{{.Data}}</pre>
-	<input type="checkbox" id="toggleWrapCheckbox">自动换行</input>
-	<input type="checkbox" id="autoRefreshCheckbox">自动刷新</input>
+	<input type="checkbox" id="toggleWrapCheckbox" checked="checked">自动换行</input>
+	<input type="checkbox" id="autoRefreshCheckbox" checked="checked">自动刷新</input>
 	<button id="refreshButton">刷新</button>
 	<button id="clearButton">清空</button>
 <script type="text/javascript">
@@ -194,7 +194,7 @@ button {
 				}
 			},
 			error: function (request, textStatus, errorThrown) {
-				alert(errorThrown)
+				// alert("")
 			}
 		})
 	}
@@ -205,14 +205,16 @@ button {
 		$('html, body').scrollTop($(document).height())
 	}
 
-	$("#toggleWrapCheckbox").click(function() {
+	var toggleWrapClick = function() {
 		var checked = $("#toggleWrapCheckbox").is(':checked')
 		$("#fileDataPre").toggleClass("pre-wrap", checked)
 		scrollToBottom()
-	})
+	}
+	$("#toggleWrapCheckbox").click(toggleWrapClick)
+	toggleWrapClick()
 
 	var refreshTimer = null
-	$("#autoRefreshCheckbox").click(function() {
+	var autoRefreshClick = function() {
 		if (refreshTimer != null) {
 			clearInterval(refreshTimer)
 			refreshTimer = null
@@ -222,7 +224,9 @@ button {
 		if (checked) {
 			 refreshTimer = setInterval(tailFunction, 3000)
 		}
-	})
+	}
+	$("#autoRefreshCheckbox").click(autoRefreshClick)
+	autoRefreshClick()
 
 	scrollToBottom()
 })()
