@@ -3,26 +3,69 @@ package main
 import (
 	"flag"
 	"html/template"
-	"log"
 	"net/http"
 	"time"
 	"os"
 	"io"
+	"log"
 	"bufio"
 	"bytes"
 	"strconv"
 	"strings"
 )
 
+type LogItem struct {
+	LogName string
+	LogFile string
+	Data    string
+	SeekPos string
+	LastMod string
+}
+
 var (
-	contextPath = flag.String("contextPath", "", "context path")
-	port        = flag.String("port", "8497", "tail log port number")
-	logFileName = flag.String("log", "", "tail log file path")
+	contextPath string
+	logItems    []LogItem
 	homeTempl   = template.Must(template.New("").Parse(homeHTML))
 )
 
-func readFileIfModified(lastMod time.Time, seekPos, endPos int64, filterKeyword string) ([]byte, time.Time, int64, error) {
-	fi, err := os.Stat(*logFileName)
+func parseLogItems(logFlag string) []LogItem {
+	logItems := splitTrim(logFlag, ",")
+
+	result := make([]LogItem, 0)
+	for i, logItem := range logItems {
+		kvs := splitTrim(logItem, ":")
+
+		logName := "LOG" + strconv.Itoa(i)
+		logFile := kvs[0]
+
+		if len(kvs) >= 2 {
+			logName = kvs[0]
+			logFile = kvs[1]
+		}
+
+		p, lastMod, fileSize, err := readFileIfModified(logFile, time.Time{}, -6000, "", true)
+		if err != nil {
+			log.Println("readFileIfModified error", err)
+			p = []byte(err.Error())
+			lastMod = time.Unix(0, 0)
+		}
+
+		item := LogItem{
+			logName,
+			logFile,
+			string(p),
+			hexString(fileSize),
+			hexString(lastMod.UnixNano()),
+		}
+
+		result = append(result, item)
+	}
+
+	return result
+}
+
+func readFileIfModified(logFile string, lastMod time.Time, seekPos int64, filterKeyword string, initRead bool) ([]byte, time.Time, int64, error) {
+	fi, err := os.Stat(logFile)
 	if err != nil {
 		return nil, lastMod, 0, err
 	}
@@ -30,7 +73,7 @@ func readFileIfModified(lastMod time.Time, seekPos, endPos int64, filterKeyword 
 		return nil, lastMod, fi.Size(), nil
 	}
 
-	input, err := os.Open(*logFileName)
+	input, err := os.Open(logFile)
 	if err != nil {
 		return nil, lastMod, fi.Size(), err
 	}
@@ -48,7 +91,7 @@ func readFileIfModified(lastMod time.Time, seekPos, endPos int64, filterKeyword 
 		return nil, lastMod, fi.Size(), err
 	}
 
-	p, lastPos, err := readContent(input, seekPos, endPos, filterKeyword)
+	p, lastPos, err := readContent(input, seekPos, filterKeyword, initRead)
 	return p, fi.ModTime(), lastPos, err
 }
 
@@ -66,15 +109,15 @@ func containsAny(str string, sub []string) bool {
 	return false
 }
 
-func readContent(input io.ReadSeeker, startPos, endPos int64, filterKeyword string) ([]byte, int64, error) {
-	subs := splitTrim(filterKeyword)
+func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, initRead bool) ([]byte, int64, error) {
+	subs := splitTrim(filterKeyword, ",")
 
 	reader := bufio.NewReader(input)
 
 	var buffer bytes.Buffer
-	firstLine := true
+	firstLine := startPos > 0 && initRead
 	pos := startPos
-	for endPos < 0 || pos < endPos {
+	for {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err == io.EOF {
@@ -102,8 +145,9 @@ func readContent(input io.ReadSeeker, startPos, endPos int64, filterKeyword stri
 
 	return buffer.Bytes(), pos, nil
 }
-func splitTrim(filterKeyword string) []string {
-	subs := strings.Split(filterKeyword, ",")
+
+func splitTrim(str, sep string) []string {
+	subs := strings.Split(str, sep)
 	ret := make([]string, 0)
 	for i, v := range subs {
 		v := strings.TrimSpace(v)
@@ -123,15 +167,27 @@ func parseHex(val string) (int64, error) {
 	return strconv.ParseInt(val, 16, 64)
 }
 
+func findLogItem(logName string) *LogItem {
+	for _, v := range logItems {
+		if v.LogName == logName {
+			return &v
+		}
+	}
+	return nil
+}
+
 func serveLocate(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	locateStart := strings.TrimSpace(req.FormValue("locateStart"))
+	logName := req.FormValue("logName")
 	if locateStart == "" {
 		w.Write([]byte("locateStart should be non empty"))
 		return
 	}
 
-	input, err := os.Open(*logFileName)
+	logFileName := findLogItem(logName).LogFile
+
+	input, err := os.Open(logFileName)
 	if err != nil {
 		w.Write([]byte(err.Error()))
 		return
@@ -184,8 +240,10 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 	seekPos, err := parseHex(r.FormValue("seekPos"))
 
 	filterKeyword := r.FormValue("filterKeyword")
+	logName := r.FormValue("logName")
+	logFileName := findLogItem(logName).LogFile
 
-	p, lastMod, seekPos, err := readFileIfModified(lastMod, seekPos, -1, filterKeyword)
+	p, lastMod, seekPos, err := readFileIfModified(logFileName, lastMod, seekPos, filterKeyword, false)
 	if err != nil {
 		log.Println("readFileIfModified error", err)
 		return
@@ -197,7 +255,7 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != *contextPath+"/" {
+	if r.URL.Path != contextPath+"/" {
 		http.Error(w, "Not found", 404)
 		return
 	}
@@ -206,33 +264,35 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	p, lastMod, fileSize, err := readFileIfModified(time.Time{}, -6000, -1, "")
-	if err != nil {
-		log.Println("readFileIfModified error", err)
-		p = []byte(err.Error())
-		lastMod = time.Unix(0, 0)
-	}
 
 	var v = struct {
-		Data        string
-		SeekPos     string
-		LastMod     string
-		LogFileName string
+		LogItems []LogItem
 	}{
-		string(p),
-		hexString(fileSize),
-		hexString(lastMod.UnixNano()),
-		*logFileName,
+		logItems,
 	}
-	homeTempl.Execute(w, &v)
+	err := homeTempl.Execute(w, &v)
+	if err != nil {
+		log.Println("template execute error", err)
+		w.Write([]byte(err.Error()))
+	}
 }
 
+// go run src/go-tail-web.go -log=/Users/bingoo/gitlab/et-server/et.log -contextPath=/et
+// go run src/go-tail-web.go -log=et:/Users/bingoo/gitlab/et-server/et.log,aa:aa.log -contextPath=/et
 func main() {
+	contextPathArg := flag.String("contextPath", "", "context path")
+	port := flag.String("port", "8497", "tail log port number")
+	logFlag := flag.String("log", "", "tail log file path")
+
 	flag.Parse()
 
-	http.HandleFunc(*contextPath+"/", serveHome)
-	http.HandleFunc(*contextPath+"/tail", serveTail)
-	http.HandleFunc(*contextPath+"/locate", serveLocate)
+	contextPath = *contextPathArg
+
+	logItems = parseLogItems(*logFlag)
+
+	http.HandleFunc(contextPath+"/", serveHome)
+	http.HandleFunc(contextPath+"/tail", serveTail)
+	http.HandleFunc(contextPath+"/locate", serveLocate)
 	if err := http.ListenAndServe(":" + *port, nil); err != nil {
 		log.Fatal(err)
 	}
@@ -241,72 +301,139 @@ func main() {
 const homeHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
-<title>{{.LogFileName}}</title>
+<title>log web</title>
 <style>
-#operateDiv {
+
+div.tab {
+	overflow: hidden;
 	position:fixed;
-	top:5px;
-	background-color: azure;
-	width: 100%;
+	bottom:0;
 	font-size: 12px;
+	background-color: #f1f1f1;
+	left:0;
+	right:0;
 }
-#filterKeyword {
+
+.operateDiv {
+	position:fixed;
+	top:2px;
+	left:8px;
+	right:0;
+	font-size: 12px;
+	background-color: #f1f1f1;
+}
+
+.filterKeyword {
 	width:300px;
 }
 
 pre {
-	margin-top: 30px;
+	margin-top: 40px;
+	margin-bottom: 50px;
+	font-size: 10px;
 }
 
 .pre-wrap {
-	font-size: 10px;
 	white-space: pre-wrap;
 }
 button {
 	padding:3px 10px;
 }
+
+div.tab button {
+	background-color: inherit;
+	float: left;
+	border: none;
+	outline: none;
+	cursor: pointer;
+	padding: 10px 16px;
+	transition: 0.3s;
+}
+
+div.tab button:hover {
+	background-color: #ddd;
+}
+
+div.tab button.active {
+	background-color: #ccc;
+}
+
+.tabcontent {
+	display: none;
+	border-top: none;
+}
+
 </style>
 <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
 </head>
 <body>
-	<pre id="fileDataPre">{{.Data}}</pre>
-	<div id="operateDiv">
-		<input type="text" id="filterKeyword" placeholder="请输入过滤关键字"></input>
-		<input type="checkbox" id="toggleWrapCheckbox">自动换行</input>
-		<input type="checkbox" id="autoRefreshCheckbox">自动刷新</input>
-		<button id="refreshButton">刷新</button>
-		<button id="clearButton">清空</button>
-		<button id="gotoBottomButton">直达底部</button>
-		<input type="text" id="locateStart" placeholder="2017-10-07 18:50"></input>
-		<button id="locateButton">定位</button>
+
+<div class="tab">
+{{with .LogItems}}
+{{range .}}
+  <button class="tablinks">{{.LogName}}</button>
+{{end}}
+{{end}}
+</div>
+
+{{with .LogItems}}
+{{range .}}
+<div id="{{.LogName}}" class="tabcontent">
+	<pre class="fileDataPre">{{.Data}}</pre>
+	<div class="operateDiv">
+		<div>{{.LogFile}}</div>
+		<input type="text" class="filterKeyword" placeholder="请输入过滤关键字"></input>
+		<input type="checkbox" class="toggleWrapCheckbox">自动换行</input>
+		<input type="checkbox" class="autoRefreshCheckbox">自动刷新</input>
+		<button class="refreshButton">刷新</button>
+		<button class="clearButton">清空</button>
+		<button class="gotoBottomButton">直达底部</button>
+		<input type="text" class="locateStart" placeholder="2017-10-07 18:50"></input>
+		<button class="locateButton">定位</button>
+		<input type="hidden" class="SeekPos" value="{{.SeekPos}}"/>
+		<input type="hidden" class="LastMod" value="{{.LastMod}}"/>
 	</div>
+</div>
+{{end}}
+{{end}}
+
 <script type="text/javascript">
 (function() {
-	var seekPos = "{{.SeekPos}}"
-	var lastMod = "{{.LastMod}}"
 	var pathname = window.location.pathname
-	if (pathname == "/") {
-		pathname = ""
+	if (pathname.lastIndexOf("/", pathname.length - 1) !== -1) {
+		pathname = pathname.substring(0, pathname.length - 1)
 	}
 
-	$('#clearButton').click(function() {
-		$('#fileDataPre').empty()
+	$('button.tablinks').click(function() {
+		$('div.tabcontent').removeClass('active').hide()
+		$('#' + $(this).text()).addClass('active').show()
 	})
 
-	var tailFunction = function() {
+	$('button.tablinks').first().click()
+
+	$('.clearButton').click(function() {
+		var parent = $(this).parents('div.tabcontent')
+		$('.fileDataPre', parent).empty()
+	})
+
+	var tailFunction = function(parent) {
 		$.ajax({
 			type: 'POST',
 			url: pathname + "/tail",
 			data: {
-				seekPos: seekPos,
-				lastMod: lastMod,
-				filterKeyword: $('#filterKeyword').val()
+				seekPos: $('.SeekPos', parent).val(),
+				lastMod: $('.LastMod', parent).val(),
+				filterKeyword: $('.filterKeyword', parent).val(),
+				logName: parent.prop('id')
 			},
 			success: function(content, textStatus, request){
-				seekPos = request.getResponseHeader('seek-pos')
-				lastMod = request.getResponseHeader('last-mod')
+				var seekPos = request.getResponseHeader('seek-pos')
+				$('.SeekPos', parent).val(seekPos)
+				var lastMod = request.getResponseHeader('last-mod')
+				$('.LastMod', parent).val(lastMod)
+
 				if (content != "" ) {
-					$("#fileDataPre").append(content)
+					$(".fileDataPre", parent).append(content)
 					scrollToBottom()
 				}
 			},
@@ -316,53 +443,66 @@ button {
 		})
 	}
 
-	$('#refreshButton').click(tailFunction)
+	$('.refreshButton').click(function() {
+		var parent = $(this).parents('div.tabcontent')
+		tailFunction(parent)
+	})
 
 	var scrollToBottom = function() {
 		$('html, body').scrollTop($(document).height())
 	}
 
-	var toggleWrapClick = function() {
-		var checked = $("#toggleWrapCheckbox").is(':checked')
-		$("#fileDataPre").toggleClass("pre-wrap", checked)
+	var toggleWrapClick = function(parent) {
+		var checked = $(".toggleWrapCheckbox", parent).is(':checked')
+		$(".fileDataPre", parent).toggleClass("pre-wrap", checked)
 		scrollToBottom()
 	}
-	$("#toggleWrapCheckbox").click(toggleWrapClick)
-	toggleWrapClick()
 
-	var refreshTimer = null
-	var autoRefreshClick = function() {
-		if (refreshTimer != null) {
-			clearInterval(refreshTimer)
-			refreshTimer = null
+	$(".toggleWrapCheckbox").click(function() {
+		var parent = $(this).parents('div.tabcontent')
+		toggleWrapClick(parent)
+	})
+
+	var refreshTimer = {}
+
+	var autoRefreshClick = function(parent) {
+		var tabcontentId = parent.prop('id')
+		if (refreshTimer[tabcontentId]) {
+			clearInterval(refreshTimer[tabcontentId])
+			refreshTimer[tabcontentId] = null
 		}
 
-		var checked = $("#autoRefreshCheckbox").is(':checked')
+		var checked = $(".autoRefreshCheckbox", parent).is(':checked')
 		if (checked) {
-			 refreshTimer = setInterval(tailFunction, 3000)
+			 refreshTimer[tabcontentId] = setInterval(function() {tailFunction(parent)}, 3000)
 		}
-		$('#refreshButton,#locateButton').prop("disabled", checked);
+		$('.refreshButton,.locateButton', parent).prop("disabled", checked);
 	}
-	$("#autoRefreshCheckbox").click(autoRefreshClick)
-	autoRefreshClick()
+
+	$(".autoRefreshCheckbox").click(function() {
+		var parent = $(this).parents('div.tabcontent')
+		autoRefreshClick(parent)
+	})
 
 	scrollToBottom()
 
-	$('#gotoBottomButton').click(scrollToBottom)
+	$('.gotoBottomButton').click(scrollToBottom)
 
-	$('#locateButton').click(function() {
+	$('.locateButton').click(function() {
+		var parent = $(this).parents('div.tabcontent')
 		$.ajax({
 			type: 'POST',
 			url: pathname + "/locate",
 			data: {
-				locateStart: $('#locateStart').val()
+				locateStart: $('.locateStart', parent).val(),
+				logName: parent.prop('id')
 			},
 			success: function(content, textStatus, request){
 				if (content != "" ) {
-					$("#fileDataPre").text(content)
+					$(".fileDataPre", parent).text(content)
 					scrollToBottom()
 				} else {
-					$("#fileDataPre").text("empty content")
+					$(".fileDataPre", parent).text("empty content")
 				}
 			},
 			error: function (request, textStatus, errorThrown) {
