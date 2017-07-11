@@ -18,17 +18,38 @@ import (
 type LogItem struct {
 	LogName string
 	LogFile string
-	Data    string
-	SeekPos string
-	LastMod string
 }
 
 var (
+	port        *string
 	contextPath string
 	logItems    []LogItem
 	homeTempl   = template.Must(template.New("").Parse(homeHTML))
 	lineRegexp  *regexp.Regexp
 )
+
+func init() {
+	contextPathArg := flag.String("contextPath", "", "context path")
+	port = flag.String("port", "8497", "tail log port number")
+	logFlag := flag.String("log", "", "tail log file path")
+	lineRegexpArg := flag.String("lineRegex",
+		`^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}`, "line regex") // 2017-07-11 18:07:01
+	flag.Parse()
+	contextPath = *contextPathArg
+	lineRegexp = regexp.MustCompile(*lineRegexpArg)
+	logItems = parseLogItems(*logFlag)
+}
+
+// go run src/go-tail-web.go -log=/Users/bingoo/gitlab/et-server/et.log -contextPath=/et
+// go run src/go-tail-web.go -log=et:/Users/bingoo/gitlab/et-server/et.log,aa:aa.log -contextPath=/et
+func main() {
+	http.HandleFunc(contextPath+"/", serveHome)
+	http.HandleFunc(contextPath+"/tail", serveTail)
+	http.HandleFunc(contextPath+"/locate", serveLocate)
+	if err := http.ListenAndServe(":" + *port, nil); err != nil {
+		log.Fatal(err)
+	}
+}
 
 func parseLogItems(logFlag string) []LogItem {
 	logItems := splitTrim(logFlag, ",")
@@ -45,19 +66,9 @@ func parseLogItems(logFlag string) []LogItem {
 			logFile = kvs[1]
 		}
 
-		p, lastMod, fileSize, err := readFileIfModified(logFile, time.Time{}, -6000, "", true)
-		if err != nil {
-			log.Println("readFileIfModified error", err)
-			p = []byte(err.Error())
-			lastMod = time.Unix(0, 0)
-		}
-
 		item := LogItem{
 			logName,
 			logFile,
-			string(p),
-			hexString(fileSize),
-			hexString(lastMod.UnixNano()),
 		}
 
 		result = append(result, item)
@@ -89,8 +100,10 @@ func readFileIfModified(logFile string, lastMod time.Time, seekPos int64, filter
 		seekPos = 0
 	}
 
-	if _, err := input.Seek(seekPos, 0); err != nil {
-		return nil, lastMod, fi.Size(), err
+	if seekPos > 0 {
+		if _, err := input.Seek(seekPos, 0); err != nil {
+			return nil, lastMod, fi.Size(), err
+		}
 	}
 
 	p, lastPos, err := readContent(input, seekPos, filterKeyword, initRead)
@@ -113,7 +126,6 @@ func containsAny(str string, sub []string) bool {
 
 func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, initRead bool) ([]byte, int64, error) {
 	subs := splitTrim(filterKeyword, ",")
-
 	reader := bufio.NewReader(input)
 
 	var buffer bytes.Buffer
@@ -141,7 +153,7 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 		}
 		line := string(data)
 		if containsAny(line, subs) {
-			buffer.WriteString(line)
+			buffer.Write(data)
 		}
 	}
 
@@ -203,6 +215,7 @@ func locateLines(input *os.File, locateStart string, w http.ResponseWriter) {
 	reader := bufio.NewReader(input)
 	locateStartFound := false
 	prevLine := ""
+
 	for {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -236,13 +249,14 @@ func locateLines(input *os.File, locateStart string, w http.ResponseWriter) {
 
 func serveTail(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	var lastMod time.Time
-	if n, err := parseHex(r.FormValue("lastMod")); err == nil {
-		lastMod = time.Unix(0, n)
+	n, err := parseHex(r.FormValue("lastMod"))
+	if err != nil {
+		w.Write([]byte("lastMod required"))
+		return
 	}
 
+	lastMod := time.Unix(0, n)
 	seekPos, err := parseHex(r.FormValue("seekPos"))
-
 	filterKeyword := r.FormValue("filterKeyword")
 	logName := r.FormValue("logName")
 	logFileName := findLogItem(logName).LogFile
@@ -258,6 +272,14 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 	w.Write(p)
 }
 
+type LogHomeItem struct {
+	LogName string
+	LogFile string
+	Data    string
+	SeekPos string
+	LastMod string
+}
+
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != contextPath+"/" {
 		http.Error(w, "Not found", 404)
@@ -269,38 +291,31 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	var v = struct {
-		LogItems []LogItem
-	}{
-		logItems,
+	items := make([]LogHomeItem, len(logItems))
+
+	for i, v := range (logItems) {
+		p, lastMod, fileSize, err := readFileIfModified(v.LogFile, time.Time{},
+			-6000, "", true)
+		if err != nil {
+			log.Println("readFileIfModified error", err)
+			p = []byte(err.Error())
+			lastMod = time.Unix(0, 0)
+		}
+
+		items[i] = LogHomeItem{
+			v.LogName,
+			v.LogFile,
+			string(p),
+			hexString(fileSize),
+			hexString(lastMod.UnixNano()),
+		}
 	}
+
+	v := struct{ LogItems []LogHomeItem }{items }
 	err := homeTempl.Execute(w, &v)
 	if err != nil {
 		log.Println("template execute error", err)
 		w.Write([]byte(err.Error()))
-	}
-}
-
-// go run src/go-tail-web.go -log=/Users/bingoo/gitlab/et-server/et.log -contextPath=/et
-// go run src/go-tail-web.go -log=et:/Users/bingoo/gitlab/et-server/et.log,aa:aa.log -contextPath=/et
-func main() {
-	contextPathArg := flag.String("contextPath", "", "context path")
-	port := flag.String("port", "8497", "tail log port number")
-	logFlag := flag.String("log", "", "tail log file path")
-	lineRegexpArg := flag.String("lineRegex", `^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}`, "line regex") // 2017-07-11 18:07:01
-
-	flag.Parse()
-
-	contextPath = *contextPathArg
-	lineRegexp = regexp.MustCompile(*lineRegexpArg)
-
-	logItems = parseLogItems(*logFlag)
-
-	http.HandleFunc(contextPath+"/", serveHome)
-	http.HandleFunc(contextPath+"/tail", serveTail)
-	http.HandleFunc(contextPath+"/locate", serveLocate)
-	if err := http.ListenAndServe(":" + *port, nil); err != nil {
-		log.Fatal(err)
 	}
 }
 
