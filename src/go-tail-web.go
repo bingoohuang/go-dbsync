@@ -15,6 +15,7 @@ import (
 )
 
 var (
+	contextPath = flag.String("contextPath", "", "context path")
 	port        = flag.String("port", "8497", "tail log port number")
 	logFileName = flag.String("log", "", "tail log file path")
 	homeTempl   = template.Must(template.New("").Parse(homeHTML))
@@ -196,7 +197,7 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+	if r.URL.Path != *contextPath+"/" {
 		http.Error(w, "Not found", 404)
 		return
 	}
@@ -229,9 +230,9 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 
-	http.HandleFunc("/", serveHome)
-	http.HandleFunc("/tail", serveTail)
-	http.HandleFunc("/locate", serveLocate)
+	http.HandleFunc(*contextPath+"/", serveHome)
+	http.HandleFunc(*contextPath+"/tail", serveTail)
+	http.HandleFunc(*contextPath+"/locate", serveLocate)
 	if err := http.ListenAndServe(":" + *port, nil); err != nil {
 		log.Fatal(err)
 	}
@@ -252,9 +253,13 @@ const homeHTML = `<!DOCTYPE html>
 #filterKeyword {
 	width:300px;
 }
+
+pre {
+	margin-top: 30px;
+}
+
 .pre-wrap {
 	font-size: 10px;
-	margin-top: 30px;
 	white-space: pre-wrap;
 }
 button {
@@ -271,6 +276,7 @@ button {
 		<input type="checkbox" id="autoRefreshCheckbox">自动刷新</input>
 		<button id="refreshButton">刷新</button>
 		<button id="clearButton">清空</button>
+		<button id="gotoBottomButton">直达底部</button>
 		<input type="text" id="locateStart" placeholder="2017-10-07 18:50"></input>
 		<button id="locateButton">定位</button>
 	</div>
@@ -335,13 +341,14 @@ button {
 		if (checked) {
 			 refreshTimer = setInterval(tailFunction, 3000)
 		}
-		$('#refreshButton').prop("disabled", checked);
-		$('#locateButton').prop("disabled", checked);
+		$('#refreshButton,#locateButton').prop("disabled", checked);
 	}
 	$("#autoRefreshCheckbox").click(autoRefreshClick)
 	autoRefreshClick()
 
 	scrollToBottom()
+
+	$('#gotoBottomButton').click(scrollToBottom)
 
 	$('#locateButton').click(function() {
 		$.ajax({
