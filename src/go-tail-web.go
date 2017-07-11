@@ -311,7 +311,13 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	v := struct{ LogItems []LogHomeItem }{items }
+	v := struct {
+		IsMoreThanOneLog bool
+		LogItems    []LogHomeItem
+	}{
+		len(items) > 1,
+		items,
+	}
 	err := homeTempl.Execute(w, &v)
 	if err != nil {
 		log.Println("template execute error", err)
@@ -325,15 +331,34 @@ const homeHTML = `<!DOCTYPE html>
 <title>log web</title>
 <style>
 
-div.tab {
-	overflow: hidden;
-	position:fixed;
-	bottom:0;
-	font-size: 12px;
-	background-color: #f1f1f1;
-	left:0;
-	right:0;
-}
+{{if .IsMoreThanOneLog}}
+	div.tab {
+		overflow: hidden;
+		position:fixed;
+		bottom:0;
+		font-size: 12px;
+		background-color: #f1f1f1;
+		left:0;
+		right:0;
+	}
+	div.tab button {
+		background-color: inherit;
+		float: left;
+		border: none;
+		outline: none;
+		cursor: pointer;
+		padding: 10px 16px;
+		transition: 0.3s;
+	}
+
+	div.tab button:hover {
+		background-color: #ddd;
+	}
+
+	div.tab button.active {
+		background-color: #ccc;
+	}
+{{end}}
 
 .operateDiv {
 	position:fixed;
@@ -361,26 +386,11 @@ button {
 	padding:3px 10px;
 }
 
-div.tab button {
-	background-color: inherit;
-	float: left;
-	border: none;
-	outline: none;
-	cursor: pointer;
-	padding: 10px 16px;
-	transition: 0.3s;
-}
-
-div.tab button:hover {
-	background-color: #ddd;
-}
-
-div.tab button.active {
-	background-color: #ccc;
-}
 
 .tabcontent {
+{{if .IsMoreThanOneLog}}
 	display: none;
+{{end}}
 	border-top: none;
 }
 
@@ -389,13 +399,15 @@ div.tab button.active {
 </head>
 <body>
 
-<div class="tab">
-{{with .LogItems}}
-{{range .}}
-  <button class="tablinks">{{.LogName}}</button>
+{{if .IsMoreThanOneLog}}
+	<div class="tab">
+		{{with .LogItems}}
+		{{range .}}
+		  <button class="tablinks">{{.LogName}}</button>
+		{{end}}
+		{{end}}
+	</div>
 {{end}}
-{{end}}
-</div>
 
 {{with .LogItems}}
 {{range .}}
@@ -425,12 +437,13 @@ div.tab button.active {
 		pathname = pathname.substring(0, pathname.length - 1)
 	}
 
+{{if .IsMoreThanOneLog}}
 	$('button.tablinks').click(function() {
 		$('div.tabcontent').removeClass('active').hide()
 		$('#' + $(this).text()).addClass('active').show()
 	})
-
 	$('button.tablinks').first().click()
+{{end}}
 
 	$('.clearButton').click(function() {
 		var parent = $(this).parents('div.tabcontent')
