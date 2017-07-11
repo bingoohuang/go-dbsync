@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"strconv"
 	"strings"
+	"regexp"
 )
 
 type LogItem struct {
@@ -26,6 +27,7 @@ var (
 	contextPath string
 	logItems    []LogItem
 	homeTempl   = template.Must(template.New("").Parse(homeHTML))
+	lineRegexp  *regexp.Regexp
 )
 
 func parseLogItems(logFlag string) []LogItem {
@@ -222,8 +224,10 @@ func locateLines(input *os.File, locateStart string, w http.ResponseWriter) {
 			}
 			w.Write(data)
 		} else if locateStartFound { // 结束查找
-			w.Write(data) // 写入定位下面一行
-			break;
+			w.Write(data) // 非标准行，比如异常堆栈信息，或者写入定位下面一行
+			if lineRegexp.MatchString(line) {
+				break;
+			}
 		} else {
 			prevLine = line
 		}
@@ -283,10 +287,12 @@ func main() {
 	contextPathArg := flag.String("contextPath", "", "context path")
 	port := flag.String("port", "8497", "tail log port number")
 	logFlag := flag.String("log", "", "tail log file path")
+	lineRegexpArg := flag.String("lineRegex", `^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}`, "line regex") // 2017-07-11 18:07:01
 
 	flag.Parse()
 
 	contextPath = *contextPathArg
+	lineRegexp = regexp.MustCompile(*lineRegexpArg)
 
 	logItems = parseLogItems(*logFlag)
 
