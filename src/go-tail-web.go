@@ -131,6 +131,7 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 	var buffer bytes.Buffer
 	firstLine := startPos > 0 && initRead
 	pos := startPos
+	lastContainsAny := false;
 	for {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -152,8 +153,15 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 			continue
 		}
 		line := string(data)
-		if containsAny(line, subs) {
+		if containsAny(line, subs) { // 包含关键字，直接写入
 			buffer.Write(data)
+			lastContainsAny = true
+		} else if lastContainsAny { // 上次包含
+			if lineRegexp.MatchString(line) { // 完整的日志行开始
+				lastContainsAny = false
+			} else { // 本次是多行中的其他行
+				buffer.Write(data)
+			}
 		}
 	}
 
