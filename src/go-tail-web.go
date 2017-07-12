@@ -1,18 +1,18 @@
 package main
 
 import (
-	"flag"
-	"html/template"
-	"net/http"
-	"time"
-	"os"
-	"io"
-	"log"
 	"bufio"
 	"bytes"
+	"flag"
+	"html/template"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"regexp"
 	"strconv"
 	"strings"
-	"regexp"
+	"time"
 )
 
 type LogItem struct {
@@ -46,7 +46,7 @@ func main() {
 	http.HandleFunc(contextPath+"/", serveHome)
 	http.HandleFunc(contextPath+"/tail", serveTail)
 	http.HandleFunc(contextPath+"/locate", serveLocate)
-	if err := http.ListenAndServe(":" + *port, nil); err != nil {
+	if err := http.ListenAndServe(":"+*port, nil); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -77,7 +77,7 @@ func parseLogItems(logFlag string) []LogItem {
 	return result
 }
 
-func readFileIfModified(logFile string, lastMod time.Time, seekPos int64, filterKeyword string, initRead bool) ([]byte, time.Time, int64, error) {
+func readFileIfModified(logFile, filterKeyword string, lastMod time.Time, seekPos int64, initRead bool) ([]byte, time.Time, int64, error) {
 	fi, err := os.Stat(logFile)
 	if err != nil {
 		return nil, lastMod, 0, err
@@ -112,7 +112,7 @@ func readFileIfModified(logFile string, lastMod time.Time, seekPos int64, filter
 
 func containsAny(str string, sub []string) bool {
 	if len(sub) == 0 {
-		return true;
+		return true
 	}
 
 	for _, v := range sub {
@@ -125,13 +125,13 @@ func containsAny(str string, sub []string) bool {
 }
 
 func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, initRead bool) ([]byte, int64, error) {
-	subs := splitTrim(filterKeyword, ",")
+	filters := splitTrim(filterKeyword, ",")
 	reader := bufio.NewReader(input)
 
 	var buffer bytes.Buffer
 	firstLine := startPos > 0 && initRead
 	pos := startPos
-	lastContainsAny := false;
+	lastContainsAny := false
 	for {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -153,7 +153,7 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 			continue
 		}
 		line := string(data)
-		if containsAny(line, subs) { // 包含关键字，直接写入
+		if containsAny(line, filters) { // 包含关键字，直接写入
 			buffer.Write(data)
 			lastContainsAny = true
 		} else if lastContainsAny { // 上次包含
@@ -202,6 +202,8 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	locateStart := strings.TrimSpace(req.FormValue("locateStart"))
 	logName := req.FormValue("logName")
+	filterKeyword := req.FormValue("filterKeyword")
+
 	if locateStart == "" {
 		w.Write([]byte("locateStart should be non empty"))
 		return
@@ -216,14 +218,15 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 	}
 	defer input.Close()
 
-	locateLines(input, locateStart, w)
+	locateLines(input, locateStart, filterKeyword, w)
 }
 
-func locateLines(input *os.File, locateStart string, w http.ResponseWriter) {
+func locateLines(input *os.File, locateStart, filterKeyword string, w http.ResponseWriter) {
 	reader := bufio.NewReader(input)
 	locateStartFound := false
 	prevLine := ""
 
+	filters := splitTrim(filterKeyword, ",")
 	for {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -243,11 +246,13 @@ func locateLines(input *os.File, locateStart string, w http.ResponseWriter) {
 				w.Write([]byte(prevLine)) // 写入定位前面一行
 				locateStartFound = true
 			}
-			w.Write(data)
+			if containsAny(line, filters) { // 包含关键字
+				w.Write(data)
+			}
 		} else if locateStartFound { // 结束查找
 			w.Write(data) // 非标准行，比如异常堆栈信息，或者写入定位下面一行
 			if lineRegexp.MatchString(line) {
-				break;
+				break
 			}
 		} else {
 			prevLine = line
@@ -269,7 +274,7 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 	logName := r.FormValue("logName")
 	logFileName := findLogItem(logName).LogFile
 
-	p, lastMod, seekPos, err := readFileIfModified(logFileName, lastMod, seekPos, filterKeyword, false)
+	p, lastMod, seekPos, err := readFileIfModified(logFileName, filterKeyword, lastMod, seekPos, false)
 	if err != nil {
 		log.Println("readFileIfModified error", err)
 		return
@@ -301,9 +306,9 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 
 	items := make([]LogHomeItem, len(logItems))
 
-	for i, v := range (logItems) {
-		p, lastMod, fileSize, err := readFileIfModified(v.LogFile, time.Time{},
-			-6000, "", true)
+	now := time.Time{}
+	for i, v := range logItems {
+		p, lastMod, fileSize, err := readFileIfModified(v.LogFile, "", now, -6000, true)
 		if err != nil {
 			log.Println("readFileIfModified error", err)
 			p = []byte(err.Error())
@@ -321,7 +326,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 
 	v := struct {
 		IsMoreThanOneLog bool
-		LogItems    []LogHomeItem
+		LogItems         []LogHomeItem
 	}{
 		len(items) > 1,
 		items,
@@ -417,12 +422,11 @@ button {
 	</div>
 {{end}}
 
-{{with .LogItems}}
-{{range .}}
-<div id="{{.LogName}}" class="tabcontent">
-	<pre class="fileDataPre">{{.Data}}</pre>
+{{range $i, $e := .LogItems}}
+<div id="{{$e.LogName}}" class="tabcontent">
+	<pre class="fileDataPre">{{$e.Data}}</pre>
 	<div class="operateDiv">
-		<div>{{.LogFile}}</div>
+		<div>{{$e.LogFile}}</div>
 		<input type="text" class="filterKeyword" placeholder="请输入过滤关键字"></input>
 		<input type="checkbox" class="toggleWrapCheckbox">自动换行</input>
 		<input type="checkbox" class="autoRefreshCheckbox">自动刷新</input>
@@ -431,11 +435,10 @@ button {
 		<button class="gotoBottomButton">直达底部</button>
 		<input type="text" class="locateStart" placeholder="2017-10-07 18:50"></input>
 		<button class="locateButton">定位</button>
-		<input type="hidden" class="SeekPos" value="{{.SeekPos}}"/>
-		<input type="hidden" class="LastMod" value="{{.LastMod}}"/>
+		<input type="hidden" class="SeekPos" value="{{$e.SeekPos}}"/>
+		<input type="hidden" class="LastMod" value="{{$e.LastMod}}"/>
 	</div>
 </div>
-{{end}}
 {{end}}
 
 <script type="text/javascript">
@@ -485,6 +488,30 @@ button {
 		})
 	}
 
+	$('.locateButton').click(function() {
+		var parent = $(this).parents('div.tabcontent')
+		$.ajax({
+			type: 'POST',
+			url: pathname + "/locate",
+			data: {
+				locateStart: $('.locateStart', parent).val(),
+				logName: parent.prop('id'),
+				filterKeyword: $('.filterKeyword', parent).val()
+			},
+			success: function(content, textStatus, request){
+				if (content != "" ) {
+					$(".fileDataPre", parent).text(content)
+					scrollToBottom()
+				} else {
+					$(".fileDataPre", parent).text("empty content")
+				}
+			},
+			error: function (request, textStatus, errorThrown) {
+				// alert("")
+			}
+		})
+	})
+
 	$('.refreshButton').click(function() {
 		var parent = $(this).parents('div.tabcontent')
 		tailFunction(parent)
@@ -527,31 +554,7 @@ button {
 	})
 
 	scrollToBottom()
-
 	$('.gotoBottomButton').click(scrollToBottom)
-
-	$('.locateButton').click(function() {
-		var parent = $(this).parents('div.tabcontent')
-		$.ajax({
-			type: 'POST',
-			url: pathname + "/locate",
-			data: {
-				locateStart: $('.locateStart', parent).val(),
-				logName: parent.prop('id')
-			},
-			success: function(content, textStatus, request){
-				if (content != "" ) {
-					$(".fileDataPre", parent).text(content)
-					scrollToBottom()
-				} else {
-					$(".fileDataPre", parent).text("empty content")
-				}
-			},
-			error: function (request, textStatus, errorThrown) {
-				// alert("")
-			}
-		})
-	})
 })()
 </script>
 </body>
