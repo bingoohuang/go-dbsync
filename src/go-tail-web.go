@@ -261,7 +261,8 @@ func locateLines(input *os.File, locateStart, filterKeyword string, w http.Respo
 }
 
 func serveTail(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	header := w.Header()
+	header.Set("Content-Type", "text/html; charset=utf-8")
 	n, err := parseHex(r.FormValue("lastMod"))
 	if err != nil {
 		w.Write([]byte("lastMod required"))
@@ -280,8 +281,8 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("last-mod", hexString(lastMod.UnixNano()))
-	w.Header().Set("seek-pos", hexString(seekPos))
+	header.Set("Last-Mod", hexString(lastMod.UnixNano()))
+	header.Set("Seek-Pos", hexString(seekPos))
 	w.Write(p)
 }
 
@@ -472,18 +473,13 @@ button {
 				logName: parent.prop('id')
 			},
 			success: function(content, textStatus, request){
-				var seekPos = request.getResponseHeader('seek-pos')
-				$('.SeekPos', parent).val(seekPos)
-				var lastMod = request.getResponseHeader('last-mod')
-				$('.LastMod', parent).val(lastMod)
+				$('.SeekPos', parent).val(request.getResponseHeader('Seek-Pos'))
+				$('.LastMod', parent).val(request.getResponseHeader('Last-Mod'))
 
 				if (content != "" ) {
 					$(".fileDataPre", parent).append(content)
 					scrollToBottom()
 				}
-			},
-			error: function (request, textStatus, errorThrown) {
-				// alert("")
 			}
 		})
 	}
@@ -505,9 +501,6 @@ button {
 				} else {
 					$(".fileDataPre", parent).text("empty content")
 				}
-			},
-			error: function (request, textStatus, errorThrown) {
-				// alert("")
 			}
 		})
 	})
