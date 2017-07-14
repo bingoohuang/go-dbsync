@@ -21,11 +21,12 @@ type LogItem struct {
 }
 
 var (
-	port        *string
-	contextPath string
-	logItems    []LogItem
-	homeTempl   = template.Must(template.New("").Parse(homeHTML))
-	lineRegexp  *regexp.Regexp
+	port         *string
+	contextPath  string
+	logItems     []LogItem
+	homeTempl    = template.Must(template.New("").Parse(homeHTML))
+	lineRegexp   *regexp.Regexp
+	tailMaxLines int
 )
 
 func init() {
@@ -34,10 +35,13 @@ func init() {
 	logFlag := flag.String("log", "", "tail log file path")
 	lineRegexpArg := flag.String("lineRegex",
 		`^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}`, "line regex") // 2017-07-11 18:07:01
+	tailMaxLinesArg := flag.Int("tailMaxLines", 1000, "max lines per tail")
+
 	flag.Parse()
 	contextPath = *contextPathArg
 	lineRegexp = regexp.MustCompile(*lineRegexpArg)
 	logItems = parseLogItems(*logFlag)
+	tailMaxLines = *tailMaxLinesArg
 }
 
 // go run src/go-tail-web.go -log=/Users/bingoo/gitlab/et-server/et.log -contextPath=/et
@@ -46,7 +50,7 @@ func main() {
 	http.HandleFunc(contextPath+"/", serveHome)
 	http.HandleFunc(contextPath+"/tail", serveTail)
 	http.HandleFunc(contextPath+"/locate", serveLocate)
-	if err := http.ListenAndServe(":"+*port, nil); err != nil {
+	if err := http.ListenAndServe(":" + *port, nil); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -132,7 +136,8 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 	firstLine := startPos > 0 && initRead
 	pos := startPos
 	lastContainsAny := false
-	for {
+	writtenLines := 0
+	for writtenLines < tailMaxLines {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err == io.EOF {
@@ -155,12 +160,14 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 		line := string(data)
 		if containsAny(line, filters) { // 包含关键字，直接写入
 			buffer.Write(data)
+			writtenLines++
 			lastContainsAny = true
 		} else if lastContainsAny { // 上次包含
 			if lineRegexp.MatchString(line) { // 完整的日志行开始
 				lastContainsAny = false
 			} else { // 本次是多行中的其他行
 				buffer.Write(data)
+				writtenLines++
 			}
 		}
 	}
@@ -265,7 +272,7 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 	header.Set("Content-Type", "text/html; charset=utf-8")
 	n, err := parseHex(r.FormValue("lastMod"))
 	if err != nil {
-		w.Write([]byte("lastMod required"))
+		http.Error(w, "lastMod required", 405)
 		return
 	}
 
@@ -277,7 +284,7 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 
 	p, lastMod, seekPos, err := readFileIfModified(logFileName, filterKeyword, lastMod, seekPos, false)
 	if err != nil {
-		log.Println("readFileIfModified error", err)
+		http.Error(w, string(err.Error()), 405)
 		return
 	}
 
