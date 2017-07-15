@@ -15,5 +15,6 @@ dbreplic
 go-log-client
 go-log-server
 go-tail-web
+go-ip-allow
 
 *.bin

@@ -21,14 +21,14 @@ var (
 
 func init() {
 	logFlag := flag.String("log", "", "tail log file path")
-	logServerArg := flag.String("logServer", "go.log.server", "log server address")
-	logServerPortArg := flag.Int("port", 10811, "log server port")
+	serverArg := flag.String("server", "go.log.server", "log server address")
+	portArg := flag.Int("port", 10811, "log server port")
 
 	flag.Parse()
 
 	logItems = myutil.ParseLogItems(*logFlag)
-	logServer = *logServerArg
-	logServerPort = *logServerPortArg
+	logServer = *serverArg
+	logServerPort = *portArg
 }
 
 func main() {

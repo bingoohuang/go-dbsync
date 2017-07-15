@@ -6,12 +6,23 @@ import (
 	"github.com/valyala/gorpc"
 	"log"
 	"os"
+	"flag"
+	"strconv"
 )
+
+var port int
+
+func init() {
+	portArg := flag.Int("port", 10811, "log server port")
+	flag.Parse()
+
+	port = *portArg
+}
 
 func main() {
 	msgChan := make(chan string)
 	s := &gorpc.Server{
-		Addr: ":10811",
+		Addr: ":" + strconv.Itoa(port),
 
 		Handler: func(clientAddr string, request interface{}) interface{} {
 			msgChan <- string(request.([]byte))

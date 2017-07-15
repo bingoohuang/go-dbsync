@@ -87,5 +87,18 @@ go get -v -u gopkg.in/kataras/iris.v6
 ```
 
 # go-tail-web
-build:`env GOOS=linux GOARCH=amd64 go build -o go-tail-web.linux.bin src/go-tail-web.go`<br/>
-run:`./go-tail-web.linux.bin -log=/Users/bingoo/gitlab/et-server/et.log -port=8497`
+build:<p>`env GOOS=linux GOARCH=amd64 go build -o go-tail-web.linux.bin src/tailweb/go-tail-web.go`</p>
+run:<p>`nohup ./go-tail-web.linux.bin -log=/Users/bingoo/gitlab/et-server/et.log -port=8497 > go-tail-web.out 2>&1 &`</p>
+or multiple logs:<p>`nohup ./go-tail-web.linux.bin -log=/Users/bingoo/gitlab/et-server/et.log,/Users/bingoo/gitlab/ab.log -port=8497 > go-tail-web.out 2>&1 &`</p>
+or multiple logs with log naming:<p>`nohup ./go-tail-web.linux.bin -log=et:/Users/bingoo/gitlab/et-server/et.log,ab:/Users/bingoo/gitlab/ab.log -port=8497 > go-tail-web.out 2>&1 &`</p>
+
+# go log collector
+## go-log-client
+build:<p>`env GOOS=linux GOARCH=amd64 go build -o go-log-client.linux.bin src/logclient/go-log-client.go`</p>
+run:<p>`nohup ./go-log-client.linux.bin -server=127.0.0.1 -port=10811 -log=et:/Users/bingoo/gitlab/et-server/et.log,ab:/Users/bingoo/gitlab/ab.log > go-log-client.out 2>&1 &`</p>
+## go-log-server
+build:<p>`env GOOS=linux GOARCH=amd64 go build -o go-log-server.linux.bin src/logclient/go-log-server.go`</p>
+run:<p>`nohup ./go-log-server.linux.bin  -port=10811 > go-log-server.out 2>&1 &`</p>
+All the logs collected from go-log-client will append to related log files with specified naming, like et.log, ab.log and etc.
+
+![image](https://user-images.githubusercontent.com/1940588/28238816-9745199c-698e-11e7-8ed5-f925130a0826.png)
