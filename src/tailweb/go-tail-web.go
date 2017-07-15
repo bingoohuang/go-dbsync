@@ -10,20 +10,15 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
+	"../myutil"
 )
-
-type LogItem struct {
-	LogName string
-	LogFile string
-}
 
 var (
 	port         *string
 	contextPath  string
-	logItems     []LogItem
+	logItems     []myutil.LogItem
 	homeTempl    = template.Must(template.New("").Parse(homeHTML))
 	lineRegexp   *regexp.Regexp
 	tailMaxLines int
@@ -40,7 +35,7 @@ func init() {
 	flag.Parse()
 	contextPath = *contextPathArg
 	lineRegexp = regexp.MustCompile(*lineRegexpArg)
-	logItems = parseLogItems(*logFlag)
+	logItems = myutil.ParseLogItems(*logFlag)
 	tailMaxLines = *tailMaxLinesArg
 }
 
@@ -53,32 +48,6 @@ func main() {
 	if err := http.ListenAndServe(":" + *port, nil); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func parseLogItems(logFlag string) []LogItem {
-	logItems := splitTrim(logFlag, ",")
-
-	result := make([]LogItem, 0)
-	for i, logItem := range logItems {
-		kvs := splitTrim(logItem, ":")
-
-		logName := "LOG" + strconv.Itoa(i)
-		logFile := kvs[0]
-
-		if len(kvs) >= 2 {
-			logName = kvs[0]
-			logFile = kvs[1]
-		}
-
-		item := LogItem{
-			logName,
-			logFile,
-		}
-
-		result = append(result, item)
-	}
-
-	return result
 }
 
 func readFileIfModified(logFile, filterKeyword string, lastMod time.Time, seekPos int64, initRead bool) ([]byte, time.Time, int64, error) {
@@ -114,22 +83,8 @@ func readFileIfModified(logFile, filterKeyword string, lastMod time.Time, seekPo
 	return p, fi.ModTime(), lastPos, err
 }
 
-func containsAny(str string, sub []string) bool {
-	if len(sub) == 0 {
-		return true
-	}
-
-	for _, v := range sub {
-		if strings.Contains(str, v) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, initRead bool) ([]byte, int64, error) {
-	filters := splitTrim(filterKeyword, ",")
+	filters := myutil.SplitTrim(filterKeyword, ",")
 	reader := bufio.NewReader(input)
 
 	var buffer bytes.Buffer
@@ -158,7 +113,7 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 			continue
 		}
 		line := string(data)
-		if containsAny(line, filters) { // 包含关键字，直接写入
+		if myutil.ContainsAny(line, filters) { // 包含关键字，直接写入
 			buffer.Write(data)
 			writtenLines++
 			lastContainsAny = true
@@ -175,36 +130,6 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 	return buffer.Bytes(), pos, nil
 }
 
-func splitTrim(str, sep string) []string {
-	subs := strings.Split(str, sep)
-	ret := make([]string, 0)
-	for i, v := range subs {
-		v := strings.TrimSpace(v)
-		if len(subs[i]) > 0 {
-			ret = append(ret, v)
-		}
-	}
-
-	return ret
-}
-
-func hexString(val int64) string {
-	return strconv.FormatInt(val, 16)
-}
-
-func parseHex(val string) (int64, error) {
-	return strconv.ParseInt(val, 16, 64)
-}
-
-func findLogItem(logName string) *LogItem {
-	for _, v := range logItems {
-		if v.LogName == logName {
-			return &v
-		}
-	}
-	return nil
-}
-
 func serveLocate(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	locateStart := strings.TrimSpace(req.FormValue("locateStart"))
@@ -216,7 +141,7 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	logFileName := findLogItem(logName).LogFile
+	logFileName := myutil.FindLogItem(logItems, logName).LogFile
 
 	input, err := os.Open(logFileName)
 	if err != nil {
@@ -233,7 +158,7 @@ func locateLines(input *os.File, locateStart, filterKeyword string, w http.Respo
 	locateStartFound := false
 	prevLine := ""
 
-	filters := splitTrim(filterKeyword, ",")
+	filters := myutil.SplitTrim(filterKeyword, ",")
 	for {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -253,7 +178,7 @@ func locateLines(input *os.File, locateStart, filterKeyword string, w http.Respo
 				w.Write([]byte(prevLine)) // 写入定位前面一行
 				locateStartFound = true
 			}
-			if containsAny(line, filters) { // 包含关键字
+			if myutil.ContainsAny(line, filters) { // 包含关键字
 				w.Write(data)
 			}
 		} else if locateStartFound { // 结束查找
@@ -270,17 +195,17 @@ func locateLines(input *os.File, locateStart, filterKeyword string, w http.Respo
 func serveTail(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 	header.Set("Content-Type", "text/html; charset=utf-8")
-	n, err := parseHex(r.FormValue("lastMod"))
+	n, err := myutil.ParseHex(r.FormValue("lastMod"))
 	if err != nil {
 		http.Error(w, "lastMod required", 405)
 		return
 	}
 
 	lastMod := time.Unix(0, n)
-	seekPos, err := parseHex(r.FormValue("seekPos"))
+	seekPos, err := myutil.ParseHex(r.FormValue("seekPos"))
 	filterKeyword := r.FormValue("filterKeyword")
 	logName := r.FormValue("logName")
-	logFileName := findLogItem(logName).LogFile
+	logFileName := myutil.FindLogItem(logItems, logName).LogFile
 
 	p, lastMod, seekPos, err := readFileIfModified(logFileName, filterKeyword, lastMod, seekPos, false)
 	if err != nil {
@@ -288,8 +213,8 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	header.Set("Last-Mod", hexString(lastMod.UnixNano()))
-	header.Set("Seek-Pos", hexString(seekPos))
+	header.Set("Last-Mod", myutil.HexString(lastMod.UnixNano()))
+	header.Set("Seek-Pos", myutil.HexString(seekPos))
 	w.Write(p)
 }
 
@@ -327,8 +252,8 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 			v.LogName,
 			v.LogFile,
 			string(p),
-			hexString(fileSize),
-			hexString(lastMod.UnixNano()),
+			myutil.HexString(fileSize),
+			myutil.HexString(lastMod.UnixNano()),
 		}
 	}
 
