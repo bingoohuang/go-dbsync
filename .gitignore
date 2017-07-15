@@ -12,6 +12,8 @@ server/abc.log
 dbreplic
 .idea
 .DS_Store
-
+go-log-client
+go-log-server
+go-tail-web
 
 *.bin
