@@ -31,7 +31,7 @@ func ParseLogItems(log string) []LogItem {
 	for i, logItem := range logItems {
 		kvs := SplitTrim(logItem, ":")
 
-		logName := "LOG" + strconv.Itoa(i)
+		logName := "log" + strconv.Itoa(i)
 		logFile := kvs[0]
 
 		if len(kvs) >= 2 {
@@ -93,4 +93,13 @@ func ContainsAny(str string, sub []string) bool {
 	}
 
 	return false
+}
+
+func StartWithBlank(str string) bool {
+	if str != "" {
+		return false
+	}
+
+	ch := str[0]
+	return ch == ' ' || ch == '\t'
 }

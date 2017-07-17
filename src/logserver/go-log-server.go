@@ -10,7 +10,9 @@ import (
 	"strconv"
 )
 
-var port int
+var (
+	port int
+)
 
 func init() {
 	portArg := flag.Int("port", 10811, "log server port")
@@ -20,25 +22,13 @@ func init() {
 }
 
 func main() {
-	msgChan := make(chan string)
-	s := &gorpc.Server{
-		Addr: ":" + strconv.Itoa(port),
+	msgChan := make(chan []byte)
 
-		Handler: func(clientAddr string, request interface{}) interface{} {
-			msgChan <- string(request.([]byte))
-			return "ok"
-		},
-	}
-
-	go func() {
-		if err := s.Serve(); err != nil {
-			log.Fatalf("Cannot start rpc server: %s", err)
-		}
-	}()
+	go startServer(msgChan)
 
 	logfileMap := make(map[string]*os.File)
-	for msg := range msgChan {
-		msg := parseMessage(msg)
+	for rpcMsg := range msgChan {
+		msg := parseMessage(rpcMsg)
 
 		logFile := getOrCreateFile(logfileMap, msg.LogName)
 		logFile.WriteString(msg.Body)
@@ -46,13 +36,28 @@ func main() {
 	}
 }
 
-func parseMessage(msg string) logrpc.Message {
-	var f logrpc.Message
-	err := json.Unmarshal([]byte(msg), &f)
+func startServer(msgChan chan []byte) {
+	s := &gorpc.Server{
+		Addr: ":" + strconv.Itoa(port),
+
+		Handler: func(clientAddr string, request interface{}) interface{} {
+			msgChan <- request.([]byte)
+			return "ok"
+		},
+	}
+
+	if err := s.Serve(); err != nil {
+		log.Fatalf("Cannot start rpc server: %s", err)
+	}
+}
+
+func parseMessage(rpcMsg []byte) logrpc.Message {
+	var msg logrpc.Message
+	err := json.Unmarshal(rpcMsg, &msg)
 	if err != nil {
 		log.Fatalf("Cannot start rpc server: %s", err)
 	}
-	return f
+	return msg
 }
 
 func getOrCreateFile(logfileMap map[string]*os.File, logName string) *os.File {
@@ -62,7 +67,7 @@ func getOrCreateFile(logfileMap map[string]*os.File, logName string) *os.File {
 	}
 
 	flag := os.O_CREATE | os.O_APPEND | os.O_WRONLY
-	logFile, _ = os.OpenFile(logName, flag, 0600)
+	logFile, _ = os.OpenFile(logName + ".log", flag, 0600)
 	logfileMap[logName] = logFile
 
 	return logFile

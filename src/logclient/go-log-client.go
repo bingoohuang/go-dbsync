@@ -3,7 +3,6 @@ package main
 import (
 	"../logrpc"
 	"../myutil"
-	"bufio"
 	"encoding/json"
 	"flag"
 	"github.com/valyala/gorpc"
@@ -11,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"io"
+	"bufio"
 )
 
 var (
@@ -61,24 +62,35 @@ func tail(item myutil.LogItem, msgChan chan logrpc.Message) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer stdout.Close()
 
-	stdoutReader := bufio.NewReader(stdout)
+	reader := bufio.NewReader(stdout)
 	if err := cmd.Start(); err != nil {
 		log.Fatal("Buffer Error:", err)
 	}
 
-	for {
-		str, err := stdoutReader.ReadString('\n')
-		if err != nil {
-			log.Fatal("Read Error:", err)
-			return
-		}
+	dataChan := make(chan []byte)
+	go readInput(reader, dataChan)
 
+	for msg := range dataChan {
 		msgChan <- logrpc.Message{
 			OriginalLog: item.LogFile,
 			LogName:     item.LogName,
 			Hostname:    hostName,
-			Body:        str,
+			Body:        string(msg),
 		}
+	}
+}
+
+func readInput(reader *bufio.Reader, dataChan chan []byte) {
+	tmp := make([]byte, 10240)
+	for {
+		length, err := reader.Read(tmp)
+		if err != nil && err != io.EOF {
+			log.Println("read error", err.Error())
+			break
+		}
+
+		dataChan <- tmp[0:length]
 	}
 }
