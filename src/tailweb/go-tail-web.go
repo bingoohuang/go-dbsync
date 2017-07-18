@@ -90,7 +90,7 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 	var buffer bytes.Buffer
 	firstLine := startPos > 0 && initRead
 	pos := startPos
-	lastContainsAny := false
+	lastContains := false
 	writtenLines := 0
 	for writtenLines < tailMaxLines {
 		data, err := reader.ReadBytes('\n')
@@ -113,13 +113,13 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 			continue
 		}
 		line := string(data)
-		if myutil.ContainsAny(line, filters) { // 包含关键字，直接写入
+		if myutil.ContainsAll(line, filters) { // 包含关键字，直接写入
 			buffer.Write(data)
 			writtenLines++
-			lastContainsAny = true
-		} else if lastContainsAny { // 上次包含
+			lastContains = true
+		} else if lastContains { // 上次包含
 			if lineRegexp.MatchString(line) { // 完整的日志行开始
-				lastContainsAny = false
+				lastContains = false
 			} else { // 本次是多行中的其他行
 				buffer.Write(data)
 				writtenLines++
@@ -178,7 +178,7 @@ func locateLines(input *os.File, locateStart, filterKeyword string, w http.Respo
 				w.Write([]byte(prevLine)) // 写入定位前面一行
 				locateStartFound = true
 			}
-			if myutil.ContainsAny(line, filters) { // 包含关键字
+			if myutil.ContainsAll(line, filters) { // 包含关键字
 				w.Write(data)
 			}
 		} else if locateStartFound { // 结束查找

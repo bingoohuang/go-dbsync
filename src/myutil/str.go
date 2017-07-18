@@ -95,6 +95,20 @@ func ContainsAny(str string, sub []string) bool {
 	return false
 }
 
+func ContainsAll(str string, sub []string) bool {
+	if len(sub) == 0 {
+		return true
+	}
+
+	for _, v := range sub {
+		if !strings.Contains(str, v) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func StartWithBlank(str string) bool {
 	if str != "" {
 		return false
