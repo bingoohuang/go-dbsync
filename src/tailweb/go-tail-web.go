@@ -75,7 +75,7 @@ func readFileIfModified(logFile, filterKeyword string, lastMod time.Time, seekPo
 
 	if seekPos > 0 {
 		if _, err := input.Seek(seekPos, 0); err != nil {
-			return nil, lastMod, fi.Size(), err
+			return nil, lastMod, seekPos, err
 		}
 	}
 
@@ -303,6 +303,7 @@ const homeHTML = `<!DOCTYPE html>
 
 	div.tab button.active {
 		background-color: #ccc;
+		font-weight:bold;
 	}
 {{end}}
 
@@ -383,6 +384,8 @@ button {
 
 {{if .IsMoreThanOneLog}}
 	$('button.tablinks').click(function() {
+		$('button.tablinks').removeClass('active')
+		$(this).addClass('active')
 		$('div.tabcontent').removeClass('active').hide()
 		$('#' + $(this).text()).addClass('active').show()
 	})
