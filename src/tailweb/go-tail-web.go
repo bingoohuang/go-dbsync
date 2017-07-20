@@ -10,18 +10,19 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"strings"
 	"time"
 	"../myutil"
+	"strconv"
 )
 
 var (
-	port         *string
-	contextPath  string
-	logItems     []myutil.LogItem
-	homeTempl    = template.Must(template.New("").Parse(homeHTML))
-	lineRegexp   *regexp.Regexp
-	tailMaxLines int
+	port           *string
+	contextPath    string
+	logItems       []myutil.LogItem
+	homeTempl      = template.Must(template.New("").Parse(homeHTML))
+	lineRegexp     *regexp.Regexp
+	tailMaxLines   int
+	locateMaxLines int
 )
 
 func init() {
@@ -31,12 +32,14 @@ func init() {
 	lineRegexpArg := flag.String("lineRegex",
 		`^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}`, "line regex") // 2017-07-11 18:07:01
 	tailMaxLinesArg := flag.Int("tailMaxLines", 1000, "max lines per tail")
+	locateMaxLinesArg := flag.Int("locateMaxLines", 500, "max lines per tail")
 
 	flag.Parse()
 	contextPath = *contextPathArg
 	lineRegexp = regexp.MustCompile(*lineRegexpArg)
 	logItems = myutil.ParseLogItems(*logFlag)
 	tailMaxLines = *tailMaxLinesArg
+	locateMaxLines = *locateMaxLinesArg
 }
 
 // go run src/go-tail-web.go -log=/Users/bingoo/gitlab/et-server/et.log -contextPath=/et
@@ -50,7 +53,7 @@ func main() {
 	}
 }
 
-func readFileIfModified(logFile, filterKeyword string, lastMod time.Time, seekPos int64, initRead bool) ([]byte, time.Time, int64, error) {
+func readFileIfModified(logFile, filterKeywords string, lastMod time.Time, seekPos int64, initRead bool) ([]byte, time.Time, int64, error) {
 	fi, err := os.Stat(logFile)
 	if err != nil {
 		return nil, lastMod, 0, err
@@ -79,12 +82,12 @@ func readFileIfModified(logFile, filterKeyword string, lastMod time.Time, seekPo
 		}
 	}
 
-	p, lastPos, err := readContent(input, seekPos, filterKeyword, initRead)
+	p, lastPos, err := readContent(input, seekPos, filterKeywords, initRead)
 	return p, fi.ModTime(), lastPos, err
 }
 
-func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, initRead bool) ([]byte, int64, error) {
-	filters := myutil.SplitTrim(filterKeyword, ",")
+func readContent(input io.ReadSeeker, startPos int64, filterKeywords string, initRead bool) ([]byte, int64, error) {
+	filters := myutil.SplitTrim(filterKeywords, ",")
 	reader := bufio.NewReader(input)
 
 	var buffer bytes.Buffer
@@ -132,65 +135,215 @@ func readContent(input io.ReadSeeker, startPos int64, filterKeyword string, init
 
 func serveLocate(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	locateStart := strings.TrimSpace(req.FormValue("locateStart"))
 	logName := req.FormValue("logName")
-	filterKeyword := req.FormValue("filterKeyword")
+	filterKeywords := req.FormValue("filterKeywords")
+	locateKeywords := req.FormValue("locateKeywords")
+	pagingLog := req.FormValue("pagingLog")
+	direction := req.FormValue("direction") // up or down
+	findPos, err := strconv.ParseInt(req.FormValue("findPos"), 10, 64)
 
-	if locateStart == "" {
-		w.Write([]byte("locateStart should be non empty"))
+	if (err != nil) {
+		http.Error(w, "findPos is illegal "+err.Error(), 405)
 		return
 	}
 
 	logFileName := myutil.FindLogItem(logItems, logName).LogFile
+
+	fi, err := os.Stat(logFileName)
+	if err != nil {
+		http.Error(w, "stat file "+err.Error(), 405)
+		return
+	}
 
 	input, err := os.Open(logFileName)
 	if err != nil {
 		w.Write([]byte(err.Error()))
 		return
 	}
+
 	defer input.Close()
 
-	locateLines(input, locateStart, filterKeyword, w)
+	if direction == "down" {
+		if findPos > 0 && findPos < fi.Size() {
+			if _, err := input.Seek(findPos, 0); err != nil {
+				http.Error(w, "Seek error "+err.Error(), 405)
+				return
+			}
+		}
+
+		p, newPos := locateLines(input, findPos, pagingLog, filterKeywords, locateKeywords)
+		w.Header().Set("Find-Pos", strconv.FormatInt(newPos, 10))
+		w.Write(p)
+	} else if direction == "up" {
+		locateStartFound := false
+		totalLines := 0
+		var buffer *bytes.Buffer = nil
+		readLines := 0;
+		if findPos < 0 {
+			findPos = fi.Size()
+		}
+
+	CONTINUE_READ:
+		newStart := findPos
+		newStart -= 6000
+		if (newStart <= 0) {
+			newStart = 0
+		}
+		if newStart >= findPos {
+			w.Header().Set("Find-Pos", strconv.FormatInt(newStart, 10))
+			if buffer != nil {
+				w.Write([]byte("already at top"))
+			} else {
+				w.Write(buffer.Bytes())
+			}
+			return
+		} else {
+			if newStart > 0 && newStart < fi.Size() {
+				if _, err := input.Seek(newStart, 0); err != nil {
+					http.Error(w, "Seek error "+err.Error(), 405)
+					return
+				}
+			}
+
+		FIRST_FOUND_REREAD:
+			p, lines, newReadLines, locateFound := locateLinesBackToward(input, newStart, findPos, pagingLog, filterKeywords, locateKeywords, locateStartFound, readLines)
+			if pagingLog == "yes" || locateFound && locateStartFound {
+				newBuffer := bytes.NewBuffer(p)
+				if buffer != nil {
+					newBuffer.Write(buffer.Bytes())
+				}
+				buffer = newBuffer
+
+				totalLines += lines
+				if totalLines >= locateMaxLines {
+					w.Header().Set("Find-Pos", strconv.FormatInt(newStart, 10))
+					w.Write(buffer.Bytes())
+					return
+				} else {
+					goto CONTINUE_READ
+				}
+			} else {
+				if locateFound {
+					if !locateStartFound {
+						readLines = newReadLines
+						locateStartFound = true
+						goto FIRST_FOUND_REREAD
+					}
+				} else {
+					findPos = newStart
+					goto CONTINUE_READ
+				}
+			}
+		}
+	}
 }
 
-func locateLines(input *os.File, locateStart, filterKeyword string, w http.ResponseWriter) {
+func locateLinesBackToward(input *os.File, findPos, maxPos int64, pagingLog, filterKeywords, locateKeywords string, locateStartFound bool, maxReadLines int) ([]byte, int, int, bool) {
 	reader := bufio.NewReader(input)
-	locateStartFound := false
-	prevLine := ""
 
-	filters := myutil.SplitTrim(filterKeyword, ",")
-	for {
+	filters := myutil.SplitTrim(filterKeywords, ",")
+	locates := myutil.SplitTrim(locateKeywords, ",")
+	lines := 0
+	readLines := 0
+	pos := findPos
+	var buffer bytes.Buffer
+	for lines < locateMaxLines && (maxReadLines <= 0 || readLines <= maxReadLines) {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err != io.EOF {
-				w.Write([]byte(err.Error()))
+				buffer.Write([]byte(err.Error()))
 			}
 			break
 		}
 
-		if len(data) == 0 {
+		len := len(data)
+		if len == 0 {
+			break
+		}
+
+		readLines++
+
+		pos += int64(len)
+		if pos >= maxPos {
 			break
 		}
 
 		line := string(data)
-		if strings.HasPrefix(line, locateStart) { // 找到了
-			if !locateStartFound {
-				w.Write([]byte(prevLine)) // 写入定位前面一行
+		if pagingLog == "yes" {
+			if (myutil.ContainsAll(line, filters)) {
+				buffer.WriteString(line)
+			}
+			lines++
+		} else {
+			if (locateStartFound) {
+				if (myutil.ContainsAll(line, filters)) {
+					buffer.WriteString(line)
+				}
+				lines++
+			} else if myutil.ContainsAll(line, locates) { // 包含关键字
 				locateStartFound = true
-			}
-			if myutil.ContainsAll(line, filters) { // 包含关键字
-				w.Write(data)
-			}
-		} else if locateStartFound { // 结束查找
-			w.Write(data) // 非标准行，比如异常堆栈信息，或者写入定位下面一行
-			if lineRegexp.MatchString(line) {
 				break
 			}
-		} else {
-			prevLine = line
 		}
 	}
+
+	return buffer.Bytes(), lines, readLines, locateStartFound
 }
+
+func locateLines(input *os.File, findPos int64, pagingLog, filterKeywords, locateKeywords string) ([]byte, int64) {
+	reader := bufio.NewReader(input)
+	locateStartFound := false
+	var prevLine []byte = nil
+
+	filters := myutil.SplitTrim(filterKeywords, ",")
+	locates := myutil.SplitTrim(locateKeywords, ",")
+	lines := 0
+	pos := findPos
+	var buffer bytes.Buffer
+	for lines < locateMaxLines {
+		data, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err != io.EOF {
+				buffer.Write([]byte(err.Error()))
+			}
+			break
+		}
+
+		len := len(data)
+		if len == 0 {
+			break
+		}
+
+		pos += int64(len)
+
+		line := string(data)
+		if pagingLog == "yes" {
+			if (myutil.ContainsAll(line, filters)) {
+				buffer.WriteString(line)
+			}
+			lines++
+		} else {
+			if myutil.ContainsAll(line, locates) { // 包含关键字
+				if !locateStartFound {
+					buffer.Write([]byte(prevLine)) // 写入定位前面一行
+					locateStartFound = true
+				}
+				buffer.Write(data)
+				lines++
+			} else if locateStartFound { // 结束查找
+				if (myutil.ContainsAll(line, filters)) {
+					buffer.WriteString(line)
+				}
+				lines++
+			} else {
+				prevLine = data
+			}
+		}
+	}
+
+	return buffer.Bytes(), pos
+}
+
 
 func serveTail(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
@@ -203,11 +356,11 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 
 	lastMod := time.Unix(0, n)
 	seekPos, err := myutil.ParseHex(r.FormValue("seekPos"))
-	filterKeyword := r.FormValue("filterKeyword")
+	filterKeywords := r.FormValue("filterKeywords")
 	logName := r.FormValue("logName")
 	logFileName := myutil.FindLogItem(logItems, logName).LogFile
 
-	p, lastMod, seekPos, err := readFileIfModified(logFileName, filterKeyword, lastMod, seekPos, false)
+	p, lastMod, seekPos, err := readFileIfModified(logFileName, filterKeywords, lastMod, seekPos, false)
 	if err != nil {
 		http.Error(w, string(err.Error()), 405)
 		return
@@ -316,7 +469,7 @@ const homeHTML = `<!DOCTYPE html>
 	background-color: #f1f1f1;
 }
 
-.filterKeyword {
+.filterKeywords, .locateKeywords {
 	width:300px;
 }
 
@@ -333,6 +486,9 @@ button {
 	padding:3px 10px;
 }
 
+.locateDiv {
+	margin-left: 50px;
+}
 
 .tabcontent {
 {{if .IsMoreThanOneLog}}
@@ -360,17 +516,25 @@ button {
 <div id="{{$e.LogName}}" class="tabcontent">
 	<pre class="fileDataPre">{{$e.Data}}</pre>
 	<div class="operateDiv">
-		<div>{{$e.LogFile}}</div>
-		<input type="text" class="filterKeyword" placeholder="请输入过滤关键字"></input>
-		<input type="checkbox" class="toggleWrapCheckbox">自动换行</input>
-		<input type="checkbox" class="autoRefreshCheckbox">自动刷新</input>
-		<button class="refreshButton">刷新</button>
-		<button class="clearButton">清空</button>
-		<button class="gotoBottomButton">直达底部</button>
-		<input type="text" class="locateStart" placeholder="2017-10-07 18:50"></input>
-		<button class="locateButton">定位</button>
-		<input type="hidden" class="SeekPos" value="{{$e.SeekPos}}"/>
-		<input type="hidden" class="LastMod" value="{{$e.LastMod}}"/>
+		<span>
+			<input type="text" class="filterKeywords" placeholder="请输入过滤关键字"></input>
+			<input type="checkbox" class="toggleWrapCheckbox">自动换行</input>
+			<input type="checkbox" class="autoRefreshCheckbox">自动刷新</input>
+			<button class="refreshButton">刷新</button>
+			<button class="clearButton">清空</button>
+			<button class="gotoBottomButton">直达底部</button>
+			<input type="hidden" class="SeekPos" value="{{$e.SeekPos}}"/>
+			<input type="hidden" class="LastMod" value="{{$e.LastMod}}"/>
+		</span>
+		<span class="locateDiv">
+			<input type="text" class="locateKeywords" placeholder="请输入查找关键字"></input>
+			<button class="findFromBottom locateButton">从底向上找</button>
+			<button class="findFromTop locateButton">从顶向下找</button>
+			<nbsp/>
+			<button class="prevPage locateButton">上一页</button>
+			<button class="nextPage locateButton">下一页</button>
+			<input type="hidden" class="findPos" value="-1"/>
+		</span>
 	</div>
 </div>
 {{end}}
@@ -404,7 +568,7 @@ button {
 			data: {
 				seekPos: $('.SeekPos', parent).val(),
 				lastMod: $('.LastMod', parent).val(),
-				filterKeyword: $('.filterKeyword', parent).val(),
+				filterKeywords: $('.filterKeywords', parent).val(),
 				logName: parent.prop('id')
 			},
 			success: function(content, textStatus, request){
@@ -415,38 +579,119 @@ button {
 					$(".fileDataPre", parent).append(content)
 					scrollToBottom()
 				}
+			},
+			error: function (request, textStatus, errorThrown) {
+				alert(textStatus + ", " + errorThrown)
 			}
 		})
 	}
 
-	$('.locateButton').click(function() {
-		var parent = $(this).parents('div.tabcontent')
+	var pagingLog = function(parent, direction) {
+		var tabcontentId = parent.prop('id')
 		$.ajax({
 			type: 'POST',
 			url: pathname + "/locate",
 			data: {
-				locateStart: $('.locateStart', parent).val(),
 				logName: parent.prop('id'),
-				filterKeyword: $('.filterKeyword', parent).val()
+				filterKeywords: $('.filterKeywords', parent).val(),
+				locateKeywords: $('.locateKeywords', parent).val(),
+				findPos: $('.findPos', parent).val(),
+				direction: direction,
+				pagingLog: 'yes'
 			},
 			success: function(content, textStatus, request){
-				if (content != "" ) {
-					$(".fileDataPre", parent).text(content)
-					scrollToBottom()
-				} else {
-					$(".fileDataPre", parent).text("empty content")
+				$('.findPos', parent).val(request.getResponseHeader('Find-Pos'))
+				if (content == "" ) {
+					alert("no more")
+					return
 				}
+
+				var pre = $(".fileDataPre", parent)
+
+				if (direction == 'down') {
+					pre.append(content)
+					scrollToBottom()
+				} else if (direction == 'up') {
+					pre.preppend(content)
+					scrollToTop()
+				}
+			},
+			error: function (request, textStatus, errorThrown) {
+				alert(textStatus + ", " + errorThrown)
 			}
 		})
-	})
+	}
+
+
+	var locateLog = function(parent, direction) {
+		var tabcontentId = parent.prop('id')
+		$.ajax({
+			type: 'POST',
+			url: pathname + "/locate",
+			data: {
+				logName: parent.prop('id'),
+				filterKeywords: $('.filterKeywords', parent).val(),
+				locateKeywords: $('.locateKeywords', parent).val(),
+				findPos: $('.findPos', parent).val(),
+				direction: direction,
+				pagingLog: 'no'
+			},
+			success: function(content, textStatus, request){
+				$('.findPos', parent).val(request.getResponseHeader('Find-Pos'))
+				if (content == "" ) {
+					alert("no more")
+					return
+				}
+
+				var pre = $(".fileDataPre", parent)
+				pre.text(content)
+
+				if (direction == 'down') {
+					scrollToBottom()
+				} else if (direction == 'up') {
+					scrollToTop()
+				}
+			},
+			error: function (request, textStatus, errorThrown) {
+				alert(textStatus + ", " + errorThrown)
+			}
+		})
+	}
+
 
 	$('.refreshButton').click(function() {
 		var parent = $(this).parents('div.tabcontent')
 		tailFunction(parent)
 	})
 
+	$('.nextPage').click(function() {
+		var parent = $(this).parents('div.tabcontent')
+		pagingLog(parent, 'down')
+	})
+	$('.prevPage').click(function() {
+		var parent = $(this).parents('div.tabcontent')
+		pagingLog(parent, 'up')
+	})
+
+	$('.findFromTop').click(function() {
+		var parent = $(this).parents('div.tabcontent')
+
+		$('.findPos', parent).val('0')
+		locateLog(parent, 'down')
+	})
+	$('.findFromBottom').click(function() {
+		var parent = $(this).parents('div.tabcontent')
+
+		$('.findPos', parent).val('-1')
+		locateLog(parent, 'up')
+	})
+
 	var scrollToBottom = function() {
 		$('html, body').scrollTop($(document).height())
+	}
+
+	var scrollToTop = function() {
+		$('html, body').scrollTop(0)
 	}
 
 	var toggleWrapClick = function(parent) {
