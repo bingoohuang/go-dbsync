@@ -142,7 +142,7 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 	direction := req.FormValue("direction") // up or down
 	findPos, err := strconv.ParseInt(req.FormValue("findPos"), 10, 64)
 
-	if (err != nil) {
+	if err != nil {
 		http.Error(w, "findPos is illegal "+err.Error(), 405)
 		return
 	}
@@ -163,6 +163,9 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 
 	defer input.Close()
 
+	filters := myutil.SplitTrim(filterKeywords, ",")
+	locates := myutil.SplitTrim(locateKeywords, ",")
+
 	if direction == "down" {
 		if findPos > 0 && findPos < fi.Size() {
 			if _, err := input.Seek(findPos, 0); err != nil {
@@ -175,6 +178,23 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Find-Pos", strconv.FormatInt(newPos, 10))
 		w.Write(p)
 	} else if direction == "up" {
+		if pagingLog == "yes" {
+
+		} else {
+			locateStartFound, foundPos, err := locateBackTowardsStart(input, locates)
+			if err != nil {
+				http.Error(w, "locateBackTowardsStart¬ error "+err.Error(), 405)
+				return
+			}
+			if !locateStartFound {
+				w.Write([]byte("not found"))
+				return
+			} else {
+
+			}
+		}
+
+
 		locateStartFound := false
 		totalLines := 0
 		var buffer *bytes.Buffer = nil
@@ -238,16 +258,81 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func locateLinesBackToward(input *os.File, findPos, maxPos int64, pagingLog, filterKeywords, locateKeywords string, locateStartFound bool, maxReadLines int) ([]byte, int, int, bool) {
+func locateBackTowardsStart(input *os.File, locates []string) (bool, int64, error) {
+	fi, err := input.Stat()
+	if err != nil {
+		return false, 0, err
+	}
+
+	if _, err := input.Seek(0, io.SeekEnd); err != nil {
+		return false, 0, err
+	}
+
+	startPos := fi.Size()
+
+	for {
+		maxPos := startPos
+		startPos = maxPos - 6000
+		if startPos <= 0 {
+			startPos = 0
+		}
+
+		if _, err := input.Seek(startPos-maxPos, io.SeekCurrent); err != nil {
+			return false, maxPos, err
+		}
+
+		found, foundPos, err := locateBackTowardStart(input, startPos, maxPos, locates)
+		if found {
+			return true, foundPos, nil
+		}
+		if err != nil {
+			return false, startPos, err
+		}
+
+		if startPos == 0 {
+			return false, startPos, nil
+		}
+	}
+}
+
+func locateBackTowardStart(input *os.File, findPos, maxPos int64, locates []string) (bool, int64, error) {
 	reader := bufio.NewReader(input)
 
-	filters := myutil.SplitTrim(filterKeywords, ",")
-	locates := myutil.SplitTrim(locateKeywords, ",")
-	lines := 0
-	readLines := 0
 	pos := findPos
+	for pos < maxPos {
+		data, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err != io.EOF {
+				return false, pos, err
+			}
+			break
+		}
+
+		len := len(data)
+		if len == 0 {
+			break
+		}
+
+		pos += int64(len)
+
+		line := string(data)
+		if (myutil.ContainsAll(line, locates)) {
+			return true, pos, nil
+		}
+	}
+
+	return false, pos, nil
+}
+
+func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []string) (content []byte,  readLines int) {
+	input.Seek(startPos, io.SeekStart)
+	reader := bufio.NewReader(input)
+
+	readLines = 0
+	pos := startPos
 	var buffer bytes.Buffer
-	for lines < locateMaxLines && (maxReadLines <= 0 || readLines <= maxReadLines) {
+	firstLine := true
+	for readLines < leftLines && pos <= endPos  {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err != io.EOF {
@@ -260,34 +345,22 @@ func locateLinesBackToward(input *os.File, findPos, maxPos int64, pagingLog, fil
 		if len == 0 {
 			break
 		}
-
-		readLines++
-
-		pos += int64(len)
-		if pos >= maxPos {
-			break
+		if !firstLine {
+			firstLine = false
+			continue
 		}
 
+		pos += int64(len)
+
 		line := string(data)
-		if pagingLog == "yes" {
-			if (myutil.ContainsAll(line, filters)) {
-				buffer.WriteString(line)
-			}
-			lines++
-		} else {
-			if (locateStartFound) {
-				if (myutil.ContainsAll(line, filters)) {
-					buffer.WriteString(line)
-				}
-				lines++
-			} else if myutil.ContainsAll(line, locates) { // 包含关键字
-				locateStartFound = true
-				break
-			}
+		if (myutil.ContainsAll(line, filters)) {
+			buffer.WriteString(line)
+			readLines++
 		}
 	}
 
-	return buffer.Bytes(), lines, readLines, locateStartFound
+	content = buffer.Bytes()
+	return
 }
 
 func locateLines(input *os.File, findPos int64, pagingLog, filterKeywords, locateKeywords string) ([]byte, int64) {
@@ -343,7 +416,6 @@ func locateLines(input *os.File, findPos int64, pagingLog, filterKeywords, locat
 
 	return buffer.Bytes(), pos
 }
-
 
 func serveTail(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
