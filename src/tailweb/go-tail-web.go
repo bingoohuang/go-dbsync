@@ -77,7 +77,7 @@ func readFileIfModified(logFile, filterKeywords string, lastMod time.Time, seekP
 	}
 
 	if seekPos > 0 {
-		if _, err := input.Seek(seekPos, 0); err != nil {
+		if _, err := input.Seek(seekPos, io.SeekStart); err != nil {
 			return nil, lastMod, seekPos, err
 		}
 	}
@@ -140,7 +140,8 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 	locateKeywords := req.FormValue("locateKeywords")
 	pagingLog := req.FormValue("pagingLog")
 	direction := req.FormValue("direction") // up or down
-	findPos, err := strconv.ParseInt(req.FormValue("findPos"), 10, 64)
+	startPos, err := strconv.ParseInt(req.FormValue("startPos"), 10, 64)
+	endPos, err := strconv.ParseInt(req.FormValue("endPos"), 10, 64)
 
 	if err != nil {
 		http.Error(w, "findPos is illegal "+err.Error(), 405)
@@ -167,139 +168,63 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 	locates := myutil.SplitTrim(locateKeywords, ",")
 
 	if direction == "down" {
-		if findPos > 0 && findPos < fi.Size() {
-			if _, err := input.Seek(findPos, 0); err != nil {
-				http.Error(w, "Seek error "+err.Error(), 405)
-				return
-			}
+		if endPos < 0 {
+			stat, _ := input.Stat()
+			endPos = stat.Size()
+		}
+		if endPos > 0 && endPos < fi.Size() {
+			input.Seek(endPos, io.SeekStart)
 		}
 
-		p, newPos := locateLines(input, findPos, pagingLog, filterKeywords, locateKeywords)
-		w.Header().Set("Find-Pos", strconv.FormatInt(newPos, 10))
-		w.Write(p)
-	} else if direction == "up" {
 		if pagingLog == "yes" {
-
+			p, newPos, _ := readLines(input, endPos, -1, locateMaxLines, filters)
+			w.Header().Set("Start-Pos", strconv.FormatInt(startPos, 10))
+			w.Header().Set("End-Pos", strconv.FormatInt(newPos, 10))
+			w.Write(p)
 		} else {
-			locateStartFound, foundPos, err := locateBackTowardsStart(input, locates)
+			locateStartFound, foundPos, err := locateForwardStart(input, endPos, locates)
 			if err != nil {
 				http.Error(w, "locateBackTowardsStart¬ error "+err.Error(), 405)
-				return
-			}
-			if !locateStartFound {
+			} else if !locateStartFound {
 				w.Write([]byte("not found"))
-				return
 			} else {
-
+				p, newPos, _ := readLines(input, foundPos, -1, locateMaxLines, filters)
+				w.Header().Set("Start-Pos", strconv.FormatInt(startPos, 10))
+				w.Header().Set("End-Pos", strconv.FormatInt(newPos, 10))
+				w.Write(p)
 			}
 		}
-
-
-		locateStartFound := false
-		totalLines := 0
-		var buffer *bytes.Buffer = nil
-		readLines := 0;
-		if findPos < 0 {
-			findPos = fi.Size()
-		}
-
-	CONTINUE_READ:
-		newStart := findPos
-		newStart -= 6000
-		if (newStart <= 0) {
-			newStart = 0
-		}
-		if newStart >= findPos {
-			w.Header().Set("Find-Pos", strconv.FormatInt(newStart, 10))
-			if buffer != nil {
-				w.Write([]byte("already at top"))
-			} else {
-				w.Write(buffer.Bytes())
-			}
-			return
+	} else if direction == "up" {
+		if pagingLog == "yes" {
+			p, newPos := readUpLinesUntilMax(input, startPos, locateMaxLines, filters)
+			w.Header().Set("Start-Pos", strconv.FormatInt(newPos, 10))
+			w.Header().Set("End-Pos", strconv.FormatInt(endPos, 10))
+			w.Write(p)
 		} else {
-			if newStart > 0 && newStart < fi.Size() {
-				if _, err := input.Seek(newStart, 0); err != nil {
-					http.Error(w, "Seek error "+err.Error(), 405)
-					return
-				}
+			if startPos < 0 {
+				stat, _ := input.Stat()
+				startPos = stat.Size()
 			}
-
-		FIRST_FOUND_REREAD:
-			p, lines, newReadLines, locateFound := locateLinesBackToward(input, newStart, findPos, pagingLog, filterKeywords, locateKeywords, locateStartFound, readLines)
-			if pagingLog == "yes" || locateFound && locateStartFound {
-				newBuffer := bytes.NewBuffer(p)
-				if buffer != nil {
-					newBuffer.Write(buffer.Bytes())
-				}
-				buffer = newBuffer
-
-				totalLines += lines
-				if totalLines >= locateMaxLines {
-					w.Header().Set("Find-Pos", strconv.FormatInt(newStart, 10))
-					w.Write(buffer.Bytes())
-					return
-				} else {
-					goto CONTINUE_READ
-				}
+			locateStartFound, foundPos, err := locateBackTowardsStart(input, startPos, locates)
+			if err != nil {
+				http.Error(w, "locateBackTowardsStart¬ error "+err.Error(), 405)
+			} else if !locateStartFound {
+				w.Write([]byte("not found"))
 			} else {
-				if locateFound {
-					if !locateStartFound {
-						readLines = newReadLines
-						locateStartFound = true
-						goto FIRST_FOUND_REREAD
-					}
-				} else {
-					findPos = newStart
-					goto CONTINUE_READ
-				}
+				p, newPos := readUpLinesUntilMax(input, foundPos, locateMaxLines, filters)
+				w.Header().Set("Start-Pos", strconv.FormatInt(newPos, 10))
+				w.Header().Set("End-Pos", strconv.FormatInt(foundPos, 10))
+				w.Write(p)
 			}
 		}
 	}
 }
 
-func locateBackTowardsStart(input *os.File, locates []string) (bool, int64, error) {
-	fi, err := input.Stat()
-	if err != nil {
-		return false, 0, err
-	}
-
-	if _, err := input.Seek(0, io.SeekEnd); err != nil {
-		return false, 0, err
-	}
-
-	startPos := fi.Size()
-
-	for {
-		maxPos := startPos
-		startPos = maxPos - 6000
-		if startPos <= 0 {
-			startPos = 0
-		}
-
-		if _, err := input.Seek(startPos-maxPos, io.SeekCurrent); err != nil {
-			return false, maxPos, err
-		}
-
-		found, foundPos, err := locateBackTowardStart(input, startPos, maxPos, locates)
-		if found {
-			return true, foundPos, nil
-		}
-		if err != nil {
-			return false, startPos, err
-		}
-
-		if startPos == 0 {
-			return false, startPos, nil
-		}
-	}
-}
-
-func locateBackTowardStart(input *os.File, findPos, maxPos int64, locates []string) (bool, int64, error) {
+func locateForwardStart(input *os.File, startPos int64, locates []string)  (found bool, newPos int64, err error) {
 	reader := bufio.NewReader(input)
 
-	pos := findPos
-	for pos < maxPos {
+	pos := startPos
+	for  {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err != io.EOF {
@@ -313,26 +238,121 @@ func locateBackTowardStart(input *os.File, findPos, maxPos int64, locates []stri
 			break
 		}
 
-		pos += int64(len)
-
 		line := string(data)
-		if (myutil.ContainsAll(line, locates)) {
+		if myutil.ContainsAll(line, locates) {
 			return true, pos, nil
 		}
+
+
+		pos += int64(len)
 	}
 
 	return false, pos, nil
 }
 
-func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []string) (content []byte,  readLines int) {
-	input.Seek(startPos, io.SeekStart)
+func locateBackTowardsStart(input *os.File, startPos int64, locates []string) (bool, int64, error) {
+	if _, err := input.Seek(startPos, io.SeekStart); err != nil {
+		return false, 0, err
+	}
+
+	for {
+		maxPos := startPos
+		startPos = maxPos - 6000
+		if startPos <= 0 {
+			startPos = 0
+		}
+
+		if _, err := input.Seek(startPos, io.SeekStart); err != nil {
+			return false, maxPos, err
+		}
+
+		found, foundPos, startPos,err := locateBackTowardStart(input, startPos, maxPos, locates)
+		if found {
+			return true, foundPos, nil
+		}
+		if err != nil {
+			return false, startPos, err
+		}
+
+		if startPos == 0 {
+			return false, startPos, nil
+		}
+	}
+}
+
+func locateBackTowardStart(input *os.File, findPos, maxPos int64, locates []string) (bool, int64, int64, error) {
+	reader := bufio.NewReader(input)
+	firstLine := true
+
+	resetFindPos := findPos
+	pos := findPos
+	for pos < maxPos {
+		data, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err != io.EOF {
+				return false, pos, resetFindPos, err
+			}
+			break
+		}
+
+		len := len(data)
+		if len == 0 {
+			break
+		}
+
+		pos += int64(len)
+
+		if firstLine {
+			resetFindPos = pos
+			firstLine = false
+			continue
+		}
+
+
+		line := string(data)
+		if myutil.ContainsAll(line, locates) {
+			return true, pos, resetFindPos, nil
+		}
+	}
+
+	return false, pos, resetFindPos, nil
+}
+
+
+func readUpLinesUntilMax(input *os.File, startPos int64, leftLines int, filters []string) (content []byte, newPos int64) {
+	var buffer *bytes.Buffer = nil
+
+	for startPos >= 0 && leftLines > 0 {
+		newStart := startPos - 6000
+		if newStart <= 0 {
+			newStart = 0
+		}
+
+		input.Seek(newStart, io.SeekStart)
+		p, _, lines := readLines(input, newStart, startPos, leftLines, filters)
+		leftLines -= lines
+
+		pb := bytes.NewBuffer(p)
+		if buffer != nil {
+			pb.Write(buffer.Bytes())
+		}
+		buffer = pb
+
+		startPos = newStart
+	}
+
+	return buffer.Bytes(), startPos
+
+}
+
+func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []string) (content []byte, newPos int64, linesRead int) {
 	reader := bufio.NewReader(input)
 
-	readLines = 0
-	pos := startPos
+	linesRead = 0
+	newPos = startPos
 	var buffer bytes.Buffer
 	firstLine := true
-	for readLines < leftLines && pos <= endPos  {
+	for linesRead < leftLines && ( endPos < 0 || newPos <= endPos){
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err != io.EOF {
@@ -350,12 +370,12 @@ func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []
 			continue
 		}
 
-		pos += int64(len)
+		newPos += int64(len)
 
 		line := string(data)
-		if (myutil.ContainsAll(line, filters)) {
+		if myutil.ContainsAll(line, filters) {
 			buffer.WriteString(line)
-			readLines++
+			linesRead++
 		}
 	}
 
@@ -363,59 +383,6 @@ func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []
 	return
 }
 
-func locateLines(input *os.File, findPos int64, pagingLog, filterKeywords, locateKeywords string) ([]byte, int64) {
-	reader := bufio.NewReader(input)
-	locateStartFound := false
-	var prevLine []byte = nil
-
-	filters := myutil.SplitTrim(filterKeywords, ",")
-	locates := myutil.SplitTrim(locateKeywords, ",")
-	lines := 0
-	pos := findPos
-	var buffer bytes.Buffer
-	for lines < locateMaxLines {
-		data, err := reader.ReadBytes('\n')
-		if err != nil {
-			if err != io.EOF {
-				buffer.Write([]byte(err.Error()))
-			}
-			break
-		}
-
-		len := len(data)
-		if len == 0 {
-			break
-		}
-
-		pos += int64(len)
-
-		line := string(data)
-		if pagingLog == "yes" {
-			if (myutil.ContainsAll(line, filters)) {
-				buffer.WriteString(line)
-			}
-			lines++
-		} else {
-			if myutil.ContainsAll(line, locates) { // 包含关键字
-				if !locateStartFound {
-					buffer.Write([]byte(prevLine)) // 写入定位前面一行
-					locateStartFound = true
-				}
-				buffer.Write(data)
-				lines++
-			} else if locateStartFound { // 结束查找
-				if (myutil.ContainsAll(line, filters)) {
-					buffer.WriteString(line)
-				}
-				lines++
-			} else {
-				prevLine = data
-			}
-		}
-	}
-
-	return buffer.Bytes(), pos
-}
 
 func serveTail(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
@@ -605,7 +572,8 @@ button {
 			<nbsp/>
 			<button class="prevPage locateButton">上一页</button>
 			<button class="nextPage locateButton">下一页</button>
-			<input type="hidden" class="findPos" value="-1"/>
+			<input type="hidden" class="StartPos" value="-1"/>
+			<input type="hidden" class="EndPos" value="-1"/>
 		</span>
 	</div>
 </div>
@@ -667,12 +635,14 @@ button {
 				logName: parent.prop('id'),
 				filterKeywords: $('.filterKeywords', parent).val(),
 				locateKeywords: $('.locateKeywords', parent).val(),
-				findPos: $('.findPos', parent).val(),
+				startPos: $('.StartPos', parent).val(),
+				endPos: $('.EndPos', parent).val(),
 				direction: direction,
 				pagingLog: 'yes'
 			},
 			success: function(content, textStatus, request){
-				$('.findPos', parent).val(request.getResponseHeader('Find-Pos'))
+				$('.StartPos', parent).val(request.getResponseHeader('Start-Pos'))
+				$('.EndPos', parent).val(request.getResponseHeader('End-Pos'))
 				if (content == "" ) {
 					alert("no more")
 					return
@@ -704,12 +674,14 @@ button {
 				logName: parent.prop('id'),
 				filterKeywords: $('.filterKeywords', parent).val(),
 				locateKeywords: $('.locateKeywords', parent).val(),
-				findPos: $('.findPos', parent).val(),
+				startPos: $('.StartPos', parent).val(),
+				endPos: $('.EndPos', parent).val(),
 				direction: direction,
 				pagingLog: 'no'
 			},
 			success: function(content, textStatus, request){
-				$('.findPos', parent).val(request.getResponseHeader('Find-Pos'))
+				$('.StartPos', parent).val(request.getResponseHeader('Start-Pos'))
+				$('.EndPos', parent).val(request.getResponseHeader('End-Pos'))
 				if (content == "" ) {
 					alert("no more")
 					return
