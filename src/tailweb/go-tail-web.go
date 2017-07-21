@@ -195,10 +195,20 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 		}
 	} else if direction == "up" {
 		if pagingLog == "yes" {
-			p, newPos := readUpLinesUntilMax(input, startPos, locateMaxLines, filters)
-			w.Header().Set("Start-Pos", strconv.FormatInt(newPos, 10))
-			w.Header().Set("End-Pos", strconv.FormatInt(endPos, 10))
-			w.Write(p)
+			if startPos != 0 {
+				if startPos < 0 {
+					stat, _ := input.Stat()
+					startPos = stat.Size()
+				}
+				p, newPos := readUpLinesUntilMax(input, startPos, locateMaxLines, filters)
+				w.Header().Set("Start-Pos", strconv.FormatInt(newPos, 10))
+				w.Header().Set("End-Pos", strconv.FormatInt(endPos, 10))
+				w.Write(p)
+			} else {
+				w.Header().Set("Start-Pos", strconv.FormatInt(startPos, 10))
+				w.Header().Set("End-Pos", strconv.FormatInt(endPos, 10))
+				w.Write([]byte("already reached top.\n"))
+			}
 		} else {
 			if startPos < 0 {
 				stat, _ := input.Stat()
