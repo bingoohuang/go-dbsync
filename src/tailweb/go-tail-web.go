@@ -9,10 +9,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 	"time"
 	"../myutil"
 	"strconv"
+	"regexp"
 )
 
 var (
@@ -53,7 +53,7 @@ func main() {
 	}
 }
 
-func readFileIfModified(logFile, filterKeywords string, lastMod time.Time, seekPos int64, initRead bool) ([]byte, time.Time, int64, error) {
+func readFileIfModified(logFile string, filters []string, lastMod time.Time, seekPos int64, initRead bool) ([]byte, time.Time, int64, error) {
 	fi, err := os.Stat(logFile)
 	if err != nil {
 		return nil, lastMod, 0, err
@@ -82,12 +82,11 @@ func readFileIfModified(logFile, filterKeywords string, lastMod time.Time, seekP
 		}
 	}
 
-	p, lastPos, err := readContent(input, seekPos, filterKeywords, initRead)
+	p, lastPos, err := readContent(input, seekPos, filters, initRead)
 	return p, fi.ModTime(), lastPos, err
 }
 
-func readContent(input io.ReadSeeker, startPos int64, filterKeywords string, initRead bool) ([]byte, int64, error) {
-	filters := myutil.SplitTrim(filterKeywords, ",")
+func readContent(input io.ReadSeeker, startPos int64, filters []string, initRead bool) ([]byte, int64, error) {
 	reader := bufio.NewReader(input)
 
 	var buffer bytes.Buffer
@@ -177,7 +176,7 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 		}
 
 		if pagingLog == "yes" {
-			p, newPos, _ := readLines(input, endPos, -1, locateMaxLines, filters)
+			p, _, newPos, _ := readLines(input, endPos, -1, locateMaxLines, filters)
 			w.Header().Set("Start-Pos", strconv.FormatInt(startPos, 10))
 			w.Header().Set("End-Pos", strconv.FormatInt(newPos, 10))
 			w.Write(p)
@@ -188,7 +187,7 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 			} else if !locateStartFound {
 				w.Write([]byte("not found"))
 			} else {
-				p, newPos, _ := readLines(input, foundPos, -1, locateMaxLines, filters)
+				p, _, newPos, _ := readLines(input, foundPos, -1, locateMaxLines, filters)
 				w.Header().Set("Start-Pos", strconv.FormatInt(startPos, 10))
 				w.Header().Set("End-Pos", strconv.FormatInt(newPos, 10))
 				w.Write(p)
@@ -324,12 +323,12 @@ func readUpLinesUntilMax(input *os.File, startPos int64, leftLines int, filters 
 
 	for startPos >= 0 && leftLines > 0 {
 		newStart := startPos - 6000
-		if newStart <= 0 {
+		if newStart < 0 {
 			newStart = 0
 		}
 
 		input.Seek(newStart, io.SeekStart)
-		p, _, lines := readLines(input, newStart, startPos, leftLines, filters)
+		p, newStartPos, _, lines := readLines(input, newStart, startPos, leftLines, filters)
 		leftLines -= lines
 
 		pb := bytes.NewBuffer(p)
@@ -338,20 +337,25 @@ func readUpLinesUntilMax(input *os.File, startPos int64, leftLines int, filters 
 		}
 		buffer = pb
 
-		startPos = newStart
+		startPos = newStartPos
+
+		if newStart == 0 {
+			break
+		}
 	}
 
 	return buffer.Bytes(), startPos
 
 }
 
-func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []string) (content []byte, newPos int64, linesRead int) {
+func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []string) (content []byte, newStartPos, newPos int64, linesRead int) {
 	reader := bufio.NewReader(input)
 
 	linesRead = 0
 	newPos = startPos
 	var buffer bytes.Buffer
-	firstLine := true
+	firstLine := startPos > 0
+
 	for linesRead < leftLines && ( endPos < 0 || newPos <= endPos){
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -365,12 +369,15 @@ func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []
 		if len == 0 {
 			break
 		}
-		if !firstLine {
+		newPos += int64(len)
+
+		if firstLine {
 			firstLine = false
+			newStartPos = newPos
 			continue
 		}
 
-		newPos += int64(len)
+
 
 		line := string(data)
 		if myutil.ContainsAll(line, filters) {
@@ -399,7 +406,8 @@ func serveTail(w http.ResponseWriter, r *http.Request) {
 	logName := r.FormValue("logName")
 	logFileName := myutil.FindLogItem(logItems, logName).LogFile
 
-	p, lastMod, seekPos, err := readFileIfModified(logFileName, filterKeywords, lastMod, seekPos, false)
+	filters := myutil.SplitTrim(filterKeywords, ",")
+	p, lastMod, seekPos, err := readFileIfModified(logFileName, filters, lastMod, seekPos, false)
 	if err != nil {
 		http.Error(w, string(err.Error()), 405)
 		return
@@ -432,8 +440,10 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	items := make([]LogHomeItem, len(logItems))
 
 	now := time.Time{}
+	emptyStringArray := make([]string, 0)
+
 	for i, v := range logItems {
-		p, lastMod, fileSize, err := readFileIfModified(v.LogFile, "", now, -6000, true)
+		p, lastMod, fileSize, err := readFileIfModified(v.LogFile, emptyStringArray, now, -6000, true)
 		if err != nil {
 			log.Println("readFileIfModified error", err)
 			p = []byte(err.Error())
@@ -654,7 +664,7 @@ button {
 					pre.append(content)
 					scrollToBottom()
 				} else if (direction == 'up') {
-					pre.preppend(content)
+					pre.prepend(content)
 					scrollToTop()
 				}
 			},
@@ -720,13 +730,15 @@ button {
 	$('.findFromTop').click(function() {
 		var parent = $(this).parents('div.tabcontent')
 
-		$('.findPos', parent).val('0')
+		$('.StartPos', parent).val('0')
+		$('.EndPos', parent).val('0')
 		locateLog(parent, 'down')
 	})
 	$('.findFromBottom').click(function() {
 		var parent = $(this).parents('div.tabcontent')
 
-		$('.findPos', parent).val('-1')
+		$('.StartPos', parent).val('-1')
+		$('.EndPos', parent).val('-1')
 		locateLog(parent, 'up')
 	})
 
