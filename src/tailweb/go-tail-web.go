@@ -562,7 +562,8 @@ button {
 			<input type="checkbox" class="autoRefreshCheckbox">自动刷新</input>
 			<button class="refreshButton">刷新</button>
 			<button class="clearButton">清空</button>
-			<button class="gotoBottomButton">直达底部</button>
+			<button class="gotoBottomButton">探底</button>
+			<button class="gotoTopButton">登顶</button>
 			<input type="hidden" class="SeekPos" value="{{$e.SeekPos}}"/>
 			<input type="hidden" class="LastMod" value="{{$e.LastMod}}"/>
 		</span>
@@ -777,6 +778,7 @@ button {
 
 	scrollToBottom()
 	$('.gotoBottomButton').click(scrollToBottom)
+	$('.gotoTopButton').click(scrollToTop)
 })()
 </script>
 </body>
