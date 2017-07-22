@@ -1,6 +1,7 @@
 package main
 
 import (
+	"../myutil"
 	"bufio"
 	"bytes"
 	"flag"
@@ -9,9 +10,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
-	"../myutil"
 	"strconv"
+	"time"
 )
 
 var (
@@ -43,7 +43,7 @@ func main() {
 	http.HandleFunc(contextPath+"/", serveHome)
 	http.HandleFunc(contextPath+"/tail", serveTail)
 	http.HandleFunc(contextPath+"/locate", serveLocate)
-	if err := http.ListenAndServe(":" + *port, nil); err != nil {
+	if err := http.ListenAndServe(":"+*port, nil); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -177,12 +177,12 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 		} else {
 			locateStartFound, foundPos, err := locateForwardStart(input, endPos, locates)
 			if err != nil {
-				response(w, startPos, endPos, []byte( "locateForwardsStart¬ error "+err.Error()+"\n"))
+				response(w, startPos, endPos, []byte("locateForwardsStart¬ error "+err.Error()+"\n"))
 			} else if !locateStartFound {
-				response(w, -1, -1, []byte("not found"));
+				response(w, -1, -1, []byte("not found"))
 			} else {
 				p, _, newPos, _ := readLines(input, foundPos, -1, locateMaxLines, filters)
-				response(w, foundPos, newPos, p);
+				response(w, foundPos, newPos, p)
 			}
 		}
 	} else if direction == "up" {
@@ -192,7 +192,7 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 					startPos = fileSize
 				}
 				p, newPos := readUpLinesUntilMax(input, startPos, locateMaxLines, filters)
-				response(w, newPos, startPos, p);
+				response(w, newPos, startPos, p)
 			} else {
 				response(w, startPos, endPos, []byte("already reached top.\n"))
 			}
@@ -202,7 +202,7 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 			}
 			locateStartFound, foundPos, err := locateBackwardsStart(input, startPos, locates)
 			if err != nil {
-				response(w, startPos, endPos, []byte( "locateBackwardsStart¬ error "+err.Error()+"\n"))
+				response(w, startPos, endPos, []byte("locateBackwardsStart¬ error "+err.Error()+"\n"))
 			} else if !locateStartFound {
 				response(w, -1, -1, []byte("not found"))
 			} else {
@@ -316,7 +316,7 @@ func locateBackwardStartBlock(input *os.File, findPos, maxPos int64, locates []s
 }
 
 func readUpLinesUntilMax(input *os.File, startPos int64, leftLines int, filters []string) (content []byte, newPos int64) {
-	var buffer *bytes.Buffer = nil
+	buffer := bytes.NewBuffer(make([]byte, 0))
 
 	for startPos >= 0 && leftLines > 0 {
 		newStart := startPos - 6000
@@ -329,13 +329,10 @@ func readUpLinesUntilMax(input *os.File, startPos int64, leftLines int, filters 
 		leftLines -= lines
 
 		pb := bytes.NewBuffer(p)
-		if buffer != nil {
-			pb.Write(buffer.Bytes())
-		}
+		pb.Write(buffer.Bytes())
 		buffer = pb
 
 		startPos = newStartPos
-
 		if newStart == 0 {
 			break
 		}
@@ -353,7 +350,7 @@ func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []
 	var buffer bytes.Buffer
 	firstLine := startPos > 0
 
-	for linesRead < leftLines && ( endPos < 0 || newPos <= endPos) {
+	for linesRead < leftLines && (endPos < 0 || newPos <= endPos) {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err != io.EOF {
