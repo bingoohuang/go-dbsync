@@ -129,18 +129,14 @@ func readContent(input io.ReadSeeker, startPos int64, filters []string, initRead
 
 func serveLocate(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
 	logName := req.FormValue("logName")
 	filterKeywords := req.FormValue("filterKeywords")
 	locateKeywords := req.FormValue("locateKeywords")
 	pagingLog := req.FormValue("pagingLog")
 	direction := req.FormValue("direction") // up or down
-	startPos, err := strconv.ParseInt(req.FormValue("startPos"), 10, 64)
-	endPos, err := strconv.ParseInt(req.FormValue("endPos"), 10, 64)
-
-	if err != nil {
-		http.Error(w, "findPos is illegal "+err.Error(), 405)
-		return
-	}
+	startPos, _ := strconv.ParseInt(req.FormValue("startPos"), 10, 64)
+	endPos, _ := strconv.ParseInt(req.FormValue("endPos"), 10, 64)
 
 	logFileName := myutil.FindLogItem(logItems, logName).LogFile
 
