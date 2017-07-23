@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+const (
+	blockSize = 3000
+)
+
 var (
 	port           *string
 	contextPath    string
@@ -27,8 +31,8 @@ func init() {
 	contextPathArg := flag.String("contextPath", "", "context path")
 	port = flag.String("port", "8497", "tail log port number")
 	logFlag := flag.String("log", "", "tail log file path")
-	tailMaxLinesArg := flag.Int("tailMaxLines", 500, "max lines per tail")
-	locateMaxLinesArg := flag.Int("locateMaxLines", 300, "max lines per tail")
+	tailMaxLinesArg := flag.Int("tailMaxLines", 300, "max lines per tail")
+	locateMaxLinesArg := flag.Int("locateMaxLines", 100, "max lines per tail")
 
 	flag.Parse()
 	contextPath = *contextPathArg
@@ -140,6 +144,10 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 
 	logFileName := myutil.FindLogItem(logItems, logName).LogFile
 
+	log.Println("locate logFileName:", logFileName, ", startPos:", startPos, ", endPos:", endPos,
+		",direction:", direction, ",pagingLog:", pagingLog,
+		",locateKeywords:", locateKeywords, ",filterKeywords", filterKeywords)
+
 	fi, err := os.Stat(logFileName)
 	if err != nil {
 		http.Error(w, "stat file "+err.Error(), 405)
@@ -158,12 +166,15 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 	locates := myutil.SplitTrim(locateKeywords, ",")
 	fileSize := fi.Size()
 
+	log.Println("log file size:", fileSize)
+
 	if direction == "down" {
 		if endPos < 0 {
 			endPos = fileSize
 		}
 		if endPos > 0 {
 			if endPos < fileSize {
+				endPos -= 1
 				input.Seek(endPos, io.SeekStart)
 			} else {
 				response(w, startPos, endPos, []byte("already reached bottom.\n"))
@@ -172,39 +183,40 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 		}
 
 		if pagingLog == "yes" {
-			p, _, newPos, _ := readLines(input, endPos, -1, locateMaxLines, filters)
-			response(w, startPos, newPos, p)
+			p, _, readEndPos, _ := readLines(input, endPos, -1, locateMaxLines, filters)
+			response(w, startPos, readEndPos, p)
 		} else {
 			locateStartFound, foundPos, err := locateForwardStart(input, endPos, locates)
 			if err != nil {
 				response(w, startPos, endPos, []byte("locateForwardsStart¬ error "+err.Error()+"\n"))
 			} else if !locateStartFound {
-				response(w, -1, -1, []byte("not found"))
+				response(w, startPos, endPos, []byte("not found"))
 			} else {
 				p, _, newPos, _ := readLines(input, foundPos, -1, locateMaxLines, filters)
 				response(w, foundPos, newPos, p)
 			}
 		}
 	} else if direction == "up" {
+		if startPos < 0 {
+			startPos = fileSize
+			log.Println("change startPos to ", startPos)
+		}
+
 		if pagingLog == "yes" {
-			if startPos != 0 {
-				if startPos < 0 {
-					startPos = fileSize
-				}
+			if startPos > 0 {
 				p, newPos := readUpLinesUntilMax(input, startPos, locateMaxLines, filters)
+				log.Println("paging up result int startPos:", newPos, ", endPos:", startPos)
 				response(w, newPos, startPos, p)
 			} else {
 				response(w, startPos, endPos, []byte("already reached top.\n"))
 			}
 		} else {
-			if startPos < 0 {
-				startPos = fileSize
-			}
-			locateStartFound, foundPos, err := locateBackwardsStart(input, startPos, locates)
+			found, foundPos, err := locateBackwardsStart(input, startPos, fileSize, locates)
+			log.Println("locate found", found, ", at pos", foundPos, ",err:", err)
 			if err != nil {
 				response(w, startPos, endPos, []byte("locateBackwardsStart¬ error "+err.Error()+"\n"))
-			} else if !locateStartFound {
-				response(w, -1, -1, []byte("not found"))
+			} else if !found {
+				response(w, endPos, endPos, []byte("not found"))
 			} else {
 				p, newPos := readUpLinesUntilMax(input, foundPos, locateMaxLines, filters)
 				response(w, newPos, foundPos, p)
@@ -220,6 +232,10 @@ func response(w http.ResponseWriter, startPos, endPos int64, content []byte) {
 }
 
 func locateForwardStart(input *os.File, startPos int64, locates []string) (found bool, newPos int64, err error) {
+	if len(locates) == 0 {
+		return true, startPos, nil
+	}
+
 	reader := bufio.NewReader(input)
 
 	pos := startPos
@@ -248,14 +264,20 @@ func locateForwardStart(input *os.File, startPos int64, locates []string) (found
 	return false, pos, nil
 }
 
-func locateBackwardsStart(input *os.File, startPos int64, locates []string) (bool, int64, error) {
+func locateBackwardsStart(input *os.File, startPos, fileSize int64, locates []string) (bool, int64, error) {
+	if len(locates) == 0 {
+		return true, fileSize, nil
+	}
+
 	if _, err := input.Seek(startPos, io.SeekStart); err != nil {
 		return false, 0, err
 	}
 
+	var stepBack int64 = blockSize
+
 	for {
 		maxPos := startPos
-		startPos = maxPos - 6000
+		startPos = maxPos - stepBack
 		if startPos <= 0 {
 			startPos = 0
 		}
@@ -264,17 +286,19 @@ func locateBackwardsStart(input *os.File, startPos int64, locates []string) (boo
 			return false, maxPos, err
 		}
 
-		found, foundPos, startPos, err := locateBackwardStartBlock(input, startPos, maxPos, locates)
+		found, foundPos, resetFindPos, err := locateBackwardStartBlock(input, startPos, maxPos, locates)
 		if found {
 			return true, foundPos, nil
 		}
 		if err != nil {
-			return false, startPos, err
+			return false, resetFindPos, err
 		}
 
 		if startPos == 0 {
-			return false, startPos, nil
+			return false, resetFindPos, nil
 		}
+
+		stepBack = resetFindPos - startPos + blockSize
 	}
 }
 
@@ -315,42 +339,50 @@ func locateBackwardStartBlock(input *os.File, findPos, maxPos int64, locates []s
 	return false, pos, resetFindPos, nil
 }
 
-func readUpLinesUntilMax(input *os.File, startPos int64, leftLines int, filters []string) (content []byte, newPos int64) {
+func readUpLinesUntilMax(input *os.File, endPos int64, leftLines int, filters []string) (content []byte, newPos int64) {
 	buffer := bytes.NewBuffer(make([]byte, 0))
 
-	for startPos >= 0 && leftLines > 0 {
-		newStart := startPos - 6000
+	var stepBack int64 = blockSize
+	for endPos >= 0 && leftLines > 0 {
+		newStart := endPos - stepBack
 		if newStart < 0 {
 			newStart = 0
 		}
+		if newStart > 0 {
+			newStart -= 1 // for jump first break line
+		}
 
 		input.Seek(newStart, io.SeekStart)
-		p, newStartPos, _, lines := readLines(input, newStart, startPos, leftLines, filters)
+		p, newStartPos, _, lines := readLines(input, newStart, endPos, leftLines, filters)
 		leftLines -= lines
+		log.Println("read from ", newStart, ", got lines ", lines, " with newStartPos ", newStartPos, ", now left lines", leftLines)
 
-		pb := bytes.NewBuffer(p)
-		pb.Write(buffer.Bytes())
-		buffer = pb
+		stepBack = newStartPos - newStart + blockSize
 
-		startPos = newStartPos
+		if lines > 0 {
+			pb := bytes.NewBuffer(p)
+			pb.Write(buffer.Bytes())
+			buffer = pb
+		}
+
+		endPos = newStartPos
 		if newStart == 0 {
 			break
 		}
 	}
 
-	return buffer.Bytes(), startPos
-
+	return buffer.Bytes(), endPos
 }
 
-func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []string) (content []byte, newStartPos, newPos int64, linesRead int) {
+func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []string) (content []byte, newStartPos, readEndPos int64, linesRead int) {
 	reader := bufio.NewReader(input)
 
 	linesRead = 0
-	newPos = startPos
+	readEndPos = startPos
 	var buffer bytes.Buffer
 	firstLine := startPos > 0
 
-	for linesRead < leftLines && (endPos < 0 || newPos <= endPos) {
+	for linesRead < leftLines && (endPos < 0 || readEndPos < endPos) {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err != io.EOF {
@@ -363,17 +395,17 @@ func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []
 		if len == 0 {
 			break
 		}
-		newPos += int64(len)
+		readEndPos += int64(len)
 
 		if firstLine {
 			firstLine = false
-			newStartPos = newPos
+			newStartPos = readEndPos
 			continue
 		}
 
 		line := string(data)
 		if myutil.ContainsAll(line, filters) {
-			buffer.WriteString(line)
+			buffer.Write(data)
 			linesRead++
 		}
 	}
@@ -434,7 +466,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	emptyStringArray := make([]string, 0)
 
 	for i, v := range logItems {
-		p, lastMod, fileSize, err := readFileIfModified(v.LogFile, emptyStringArray, now, -6000, true)
+		p, lastMod, fileSize, err := readFileIfModified(v.LogFile, emptyStringArray, now, -blockSize, true)
 		if err != nil {
 			log.Println("readFileIfModified error", err)
 			p = []byte(err.Error())
@@ -630,8 +662,17 @@ button {
 		})
 	}
 
+	var requesting = function(parent, disabled){
+		$('.refreshButton,.locateButton', parent).prop("disabled", disabled);
+	}
+
 	var pagingLog = function(parent, direction) {
+		requesting(parent, true)
+
 		var tabcontentId = parent.prop('id')
+		var startPos = $('.StartPos', parent).val()
+		var endPos = $('.EndPos', parent).val()
+
 		$.ajax({
 			type: 'POST',
 			url: pathname + "/locate",
@@ -639,8 +680,8 @@ button {
 				logName: parent.prop('id'),
 				filterKeywords: $('.filterKeywords', parent).val(),
 				locateKeywords: $('.locateKeywords', parent).val(),
-				startPos: $('.StartPos', parent).val(),
-				endPos: $('.EndPos', parent).val(),
+				startPos: startPos,
+				endPos: endPos,
 				direction: direction,
 				pagingLog: 'yes'
 			},
@@ -649,22 +690,32 @@ button {
 				$('.EndPos', parent).val(request.getResponseHeader('End-Pos'))
 
 				var pre = $(".fileDataPre", parent)
-				if (direction == 'down') {
+
+				if (startPos == -1 && endPos == -1) {
+					pre.text(content)
+				} else if (direction == 'down') {
 					pre.append(content)
-					scrollToBottom()
 				} else if (direction == 'up') {
 					pre.prepend(content)
+				}
+
+				if (direction == 'down') {
+					scrollToBottom()
+				} else if (direction == 'up') {
 					scrollToTop()
 				}
+				requesting(parent, false)
 			},
 			error: function (request, textStatus, errorThrown) {
 				alert(textStatus + ", " + errorThrown)
+				requesting(parent, false)
 			}
 		})
 	}
 
 
 	var locateLog = function(parent, direction) {
+		requesting(parent, true)
 		var tabcontentId = parent.prop('id')
 		$.ajax({
 			type: 'POST',
@@ -690,9 +741,11 @@ button {
 				} else if (direction == 'up') {
 					scrollToTop()
 				}
+				requesting(parent, false)
 			},
 			error: function (request, textStatus, errorThrown) {
 				alert(textStatus + ", " + errorThrown)
+				requesting(parent, false)
 			}
 		})
 	}
