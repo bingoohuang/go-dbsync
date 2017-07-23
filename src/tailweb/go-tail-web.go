@@ -183,16 +183,18 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 		}
 
 		if pagingLog == "yes" {
-			p, _, readEndPos, _ := readLines(input, endPos, -1, locateMaxLines, filters)
+			p, _, readEndPos, _ := readLines(input, endPos, -1, true, locateMaxLines, filters)
 			response(w, startPos, readEndPos, p)
 		} else {
-			locateStartFound, foundPos, err := locateForwardStart(input, endPos, locates)
+			found, foundPos, foundLine, err := locateForwardStart(input, endPos, locates)
+			log.Println("locate found", found, ", at pos", foundPos, ",err:", err)
 			if err != nil {
 				response(w, startPos, endPos, []byte("locateForwardsStart¬ error "+err.Error()+"\n"))
-			} else if !locateStartFound {
+			} else if !found {
 				response(w, startPos, endPos, []byte("not found"))
 			} else {
-				p, _, newPos, _ := readLines(input, foundPos, -1, locateMaxLines, filters)
+				w.Write([]byte(foundLine))
+				p, _, newPos, _ := readLines(input, foundPos, -1, false, locateMaxLines, filters)
 				response(w, foundPos, newPos, p)
 			}
 		}
@@ -226,14 +228,15 @@ func serveLocate(w http.ResponseWriter, req *http.Request) {
 }
 
 func response(w http.ResponseWriter, startPos, endPos int64, content []byte) {
+	log.Println("response with startPos", startPos, " and endPos", endPos)
 	w.Header().Set("Start-Pos", strconv.FormatInt(startPos, 10))
 	w.Header().Set("End-Pos", strconv.FormatInt(endPos, 10))
 	w.Write(content)
 }
 
-func locateForwardStart(input *os.File, startPos int64, locates []string) (found bool, newPos int64, err error) {
+func locateForwardStart(input *os.File, startPos int64, locates []string) (found bool, foundPos int64, foundLine string, err error) {
 	if len(locates) == 0 {
-		return true, startPos, nil
+		return true, startPos, "", nil
 	}
 
 	reader := bufio.NewReader(input)
@@ -243,7 +246,7 @@ func locateForwardStart(input *os.File, startPos int64, locates []string) (found
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err != io.EOF {
-				return false, pos, err
+				return false, pos, "", err
 			}
 			break
 		}
@@ -255,13 +258,13 @@ func locateForwardStart(input *os.File, startPos int64, locates []string) (found
 
 		line := string(data)
 		if myutil.ContainsAll(line, locates) {
-			return true, pos, nil
+			return true, pos, line, nil
 		}
 
 		pos += int64(len)
 	}
 
-	return false, pos, nil
+	return false, pos, "", nil
 }
 
 func locateBackwardsStart(input *os.File, startPos, fileSize int64, locates []string) (bool, int64, error) {
@@ -353,7 +356,7 @@ func readUpLinesUntilMax(input *os.File, endPos int64, leftLines int, filters []
 		}
 
 		input.Seek(newStart, io.SeekStart)
-		p, newStartPos, _, lines := readLines(input, newStart, endPos, leftLines, filters)
+		p, newStartPos, _, lines := readLines(input, newStart, endPos, true, leftLines, filters)
 		leftLines -= lines
 		log.Println("read from ", newStart, ", got lines ", lines, " with newStartPos ", newStartPos, ", now left lines", leftLines)
 
@@ -374,13 +377,14 @@ func readUpLinesUntilMax(input *os.File, endPos int64, leftLines int, filters []
 	return buffer.Bytes(), endPos
 }
 
-func readLines(input *os.File, startPos, endPos int64, leftLines int, filters []string) (content []byte, newStartPos, readEndPos int64, linesRead int) {
+// jumpFirstLine 第一行可能不完整，需要跳过
+func readLines(input *os.File, startPos, endPos int64, jumpFirstLine bool, leftLines int, filters []string) (content []byte, newStartPos, readEndPos int64, linesRead int) {
 	reader := bufio.NewReader(input)
 
 	linesRead = 0
 	readEndPos = startPos
 	var buffer bytes.Buffer
-	firstLine := startPos > 0
+	firstLine := jumpFirstLine && startPos > 0
 
 	for linesRead < leftLines && (endPos < 0 || readEndPos < endPos) {
 		data, err := reader.ReadBytes('\n')
