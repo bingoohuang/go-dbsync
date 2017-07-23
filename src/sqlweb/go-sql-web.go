@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"errors"
 )
 
 var (
@@ -24,7 +25,7 @@ var (
 func init() {
 	contextPathArg := flag.String("contextPath", "", "context path")
 	portArg := flag.Int("port", 8080, "Port to serve.")
-	maxRowsArg := flag.Int("maxRows", 50, "Max number of rows to return.")
+	maxRowsArg := flag.Int("maxRows", 1000, "Max number of rows to return.")
 	dataSourceArg := flag.String("dataSource", "user:pass@tcp(127.0.0.1:3306)/db?charset=utf8", "Max number of rows to return.")
 
 	flag.Parse()
@@ -38,6 +39,7 @@ func init() {
 func main() {
 	http.HandleFunc(contextPath+"/", serveHome)
 	http.HandleFunc(contextPath+"/query", serveQuery)
+	http.HandleFunc(contextPath+"/searchDb", serveSearchDb)
 	if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
 		log.Fatal(err)
 	}
@@ -66,6 +68,39 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type SearchResult struct {
+	MerchantName string
+	MerchantId   string
+}
+
+func serveSearchDb(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	searchKey := strings.TrimSpace(req.FormValue("searchKey"))
+	if searchKey == "" {
+		http.Error(w, "searchKey required", 405)
+		return
+	}
+
+	searchSql := `SELECT MERCHANT_NAME, MERCHANT_ID
+		FROM TR_F_MERCHANT WHERE MERCHANT_ID = '` + searchKey + `' OR MERCHANT_CODE = '` + searchKey + `' OR MERCHANT_NAME LIKE '%` + searchKey + `%' LIMIT 3`
+
+	_, data, _, _, err := executeQuery(searchSql, dataSource)
+	if err != nil {
+		http.Error(w, err.Error(), 405)
+		return
+	}
+
+	searchResult := make([]SearchResult, len(data))
+	for i, v := range data {
+		searchResult[i] = SearchResult{
+			v[1],
+			v[2],
+		}
+	}
+
+	json.NewEncoder(w).Encode(searchResult)
+}
+
 type QueryResult struct {
 	Headers       []string
 	Rows          [][]string
@@ -77,14 +112,15 @@ type QueryResult struct {
 func serveQuery(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	querySql := strings.TrimSpace(req.FormValue("sql"))
+	tid := strings.TrimSpace(req.FormValue("tid"))
 
-	db, err := sql.Open("mysql", dataSource)
+	dbDataSource, err := selectDb(tid)
 	if err != nil {
-		panic(err.Error()) // Just for example purpose. You should use proper error handling instead of panic
+		http.Error(w, err.Error(), 405)
+		return
 	}
-	defer db.Close()
 
-	header, data, err, executionTime, costTime := query(db, querySql, maxRows)
+	header, data, executionTime, costTime, err := executeQuery(querySql, dbDataSource)
 	var errMsg string
 	if err != nil {
 		errMsg = err.Error()
@@ -99,6 +135,37 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(queryResult)
+}
+
+func selectDb(tid string) (string, error) {
+	queryDbSql := "SELECT DB_USERNAME, DB_PASSWORD, PROXY_IP, PROXY_PORT, DB_NAME FROM TR_F_DB WHERE MERCHANT_ID = '" + tid + "' LIMIT 1"
+
+	_, data, _, _, err := executeQuery(queryDbSql, dataSource)
+	if err != nil {
+		return "", err
+	}
+
+	if len(data) == 0 {
+		return "", errors.New("no db found")
+	} else if len(data) > 1 {
+		return "", errors.New("more than one db found")
+	}
+
+	row := data[0]
+
+	// user:pass@tcp(127.0.0.1:3306)/db?charset=utf8
+	return row[1] + ":" + row[2] + "@tcp(" + row[3] + ":" + row[4] + ")/" + row[5] + "?charset=utf8mb4,utf8&timeout=3s", nil
+}
+
+func executeQuery(querySql, dataSource string) ([]string /*header*/ , [][]string /*data*/ , string /*executionTime*/ , string /*costTime*/ , error) {
+	db, err := sql.Open("mysql", dataSource)
+	if err != nil {
+		return nil, nil, "", "", err
+	}
+	defer db.Close()
+
+	header, data, err, executionTime, costTime := query(db, querySql, maxRows)
+	return header, data, executionTime, costTime, nil
 }
 
 func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, error, string, string) {
@@ -121,7 +188,7 @@ func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, error, 
 
 	data := make([][]string, 0)
 
-	for row := 1; rows.Next() && row < maxRows; row++ {
+	for row := 1; rows.Next() && row <= maxRows; row++ {
 		strValues := make([]sql.NullString, columnSize+1)
 		strValues[0] = sql.NullString{strconv.Itoa(row), true}
 		pointers := make([]interface{}, columnSize)
@@ -160,31 +227,50 @@ button {
 	width:60%;
 }
 table {
-  width: 100%;
-  border-collapse: collapse;
+	width: 100%;
+	border-collapse: collapse;
 }
 table td {
-  border: 1px solid #eeeeee;
-  white-space: nowrap;
+	border: 1px solid #eeeeee;
+	white-space: nowrap;
 }
 .error {
 	color: red;
 }
-.CodeMirror {
-    border-top: 1px solid black;
-    border-bottom: 1px solid black;
+.searchKey {
+	width: 150px;
 }
+.searchResult span {
+	border: 1px solid #ccc;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+.searchResult .active {
+	background-color: #ccc;
+	font-weight:bold;
+}
+
+table tr:first-child td {
+	background-color: aliceblue;
+}
+
 </style>
 <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
 <script src="http://codemirror.net/1/js/codemirror.js" type="text/javascript"></script>
 
 </head>
 <body>
+<div>
+<input type="text" placeholder="tid or tcode or part of name" class="searchKey">
+<button class="searchButton">Search DB</button>
+<span class="searchResult"></span>
+<button class="executeQuery">Execute SQL</button>
+</div>
 <div style="border-top: 1px solid black; border-bottom: 1px solid black;">
 <textarea  class="sql" id="code" cols="120" rows="5">
 SELECT NOW()
 </textarea>
-<button class="executeQuery">Execute</button>
 </div>
 <script type="text/javascript">
 
@@ -211,6 +297,7 @@ SELECT NOW()
 			type: 'POST',
 			url: pathname + "/query",
 			data: {
+				tid: activeMerchantId,
 				sql: sql
 			},
 			success: function(content, textStatus, request){
@@ -220,22 +307,17 @@ SELECT NOW()
 	})
 
 	function tableCreate(result, sql) {
-		var table = ''
-
-		table += '<table><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
+		var table = '<table><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
 		+ '<tr><td>' + result.ExecutionTime  + '</td><td>' + result.CostTime  + '</td><td>' + sql + '</td><td>'
 		+ (result.Error || 'OK') + '</td><tr></table><br/>'
-
-		table += '<table>'
+	    + '<table>'
 		if (result.Headers && result.Headers.length > 0 ) {
 			table += '<tr><td>#</td>'
 			for (var i = 0; i < result.Headers.length; i++) {
 				table += '<td>' + i + ":" +  result.Headers[i] + '</td>'
 			}
-
 			table += '</tr>'
 		}
-
 		if (result.Rows && result.Rows.length > 0 ) {
 			for (var i = 0; i < result.Rows.length; i++) {
 				table += '<tr>'
@@ -245,11 +327,44 @@ SELECT NOW()
 				table += '</tr>'
 			}
 		}
-		table += '</table>'
-
-
+		table += '</table><br/>'
 		$(table).prependTo($('.result'))
 	}
+
+	$('.searchKey').keydown(function(event){
+		var keyCode =  event.keyCode  || event.which
+		if (keyCode == 13) {
+			$('.searchButton').click()
+		}
+	});
+
+	$('.searchButton').click(function() {
+		var searchKey = $('.searchKey').val()
+		$.ajax({
+			type: 'POST',
+			url: pathname + "/searchDb",
+			data: {
+				searchKey: searchKey
+			},
+			success: function(content, textStatus, request){
+				var searchResult = $('.searchResult')
+				var searchHtml = ''
+				if (content && content.length > 0 ) {
+					for (var j = 0; j <  content.length; j++) {
+						searchHtml += '<span tid="' + content[j].MerchantId + '">' + content[j].MerchantName + '</span>'
+					}
+				}
+				searchResult.html(searchHtml)
+			}
+		})
+	})
+
+	var activeMerchantId = null
+	$('.searchResult').on('click', 'span', function() {
+		$('.searchResult span').removeClass('active')
+		$(this).addClass('active')
+		activeMerchantId = $(this).attr('tid')
+	})
 })()
 </script>
 </body>
