@@ -1,15 +1,16 @@
 package main
 
 import (
-	"flag"
 	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
-	"log"
-	"strconv"
-	"net/http"
-	"html/template"
-	"strings"
 	"encoding/json"
+	"flag"
+	_ "github.com/go-sql-driver/mysql"
+	"html/template"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
 )
 
 var (
@@ -66,9 +67,11 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 }
 
 type QueryResult struct {
-	Headers []string
-	Rows    [][]string
-	Error   string
+	Headers       []string
+	Rows          [][]string
+	Error         string
+	ExecutionTime string
+	CostTime      string
 }
 
 func serveQuery(w http.ResponseWriter, req *http.Request) {
@@ -81,31 +84,37 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 	}
 	defer db.Close()
 
-	header, data, err := query(db, querySql, maxRows)
+	header, data, err, executionTime, costTime := query(db, querySql, maxRows)
 	var errMsg string
 	if err != nil {
 		errMsg = err.Error()
 	}
 
 	queryResult := QueryResult{
-		Headers: header,
-		Rows:    data,
-		Error:   errMsg,
+		Headers:       header,
+		Rows:          data,
+		Error:         errMsg,
+		ExecutionTime: executionTime,
+		CostTime:      costTime,
 	}
 
 	json.NewEncoder(w).Encode(queryResult)
 }
 
-func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, error) {
+func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, error, string, string) {
 	log.Printf("querying: %s", query)
+	start := time.Now()
+	executionTime := start.Format("2006-01-02 15:04:05.000")
 	rows, err := db.Query(query)
+
+	costTime := time.Since(start).String()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, err, executionTime, costTime
 	}
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, err, executionTime, costTime
 	}
 
 	columnSize := len(columns)
@@ -113,18 +122,30 @@ func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, error) 
 	data := make([][]string, 0)
 
 	for row := 1; rows.Next() && row < maxRows; row++ {
-		strValues := make([]string, columnSize+1)
-		strValues[0] = strconv.Itoa(row)
+		strValues := make([]sql.NullString, columnSize+1)
+		strValues[0] = sql.NullString{strconv.Itoa(row), true}
 		pointers := make([]interface{}, columnSize)
 		for i := 0; i < columnSize; i++ {
 			pointers[i] = &strValues[i+1]
 		}
 		if err := rows.Scan(pointers...); err != nil {
-			return columns, data, err
+			return columns, data, err, executionTime, ""
 		}
-		data = append(data, strValues)
+
+		values := make([]string, columnSize+1)
+		for i, v := range strValues {
+			if v.Valid {
+				values[i] = v.String
+			} else {
+				values[i] = "(null)"
+			}
+		}
+
+		data = append(data, values)
 	}
-	return columns, data, nil
+
+	costTime = time.Since(start).String()
+	return columns, data, nil, executionTime, costTime
 }
 
 const homeHTML = `<!DOCTYPE html>
@@ -132,51 +153,60 @@ const homeHTML = `<!DOCTYPE html>
 <head>
 <title>sql web</title>
 <style>
-
 button {
 	padding:3px 10px;
 }
-
 .sql {
-	width:100%;
+	width:60%;
 }
-
 table {
-	border-collapse: collapse;
-	border: 1px solid;
+  width: 100%;
+  border-collapse: collapse;
 }
-
-tr {
-	border: 0;
-	margin: 0;
+table td {
+  border: 1px solid #eeeeee;
+  white-space: nowrap;
 }
-
-th,td {
-	border: 1px solid;
-}
-
 .error {
 	color: red;
 }
-
+.CodeMirror {
+    border-top: 1px solid black;
+    border-bottom: 1px solid black;
+}
 </style>
 <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
+<script src="http://codemirror.net/1/js/codemirror.js" type="text/javascript"></script>
+
 </head>
 <body>
-<div>
-<input type="textarea" class="sql" placeholder="请输入SQL"></input>
-<button class="executeQuery">刷新</button>
+<div style="border-top: 1px solid black; border-bottom: 1px solid black;">
+<textarea  class="sql" id="code" cols="120" rows="5">
+SELECT NOW()
+</textarea>
+<button class="executeQuery">Execute</button>
 </div>
+<script type="text/javascript">
+
+</script>
 <br/>
 <div class="result"></div>
 <script>
+
 (function() {
+	var codeMirror = CodeMirror.fromTextArea('code', {
+		height: "60px",
+		parserfile: "http://codemirror.net/1/contrib/sql/js/parsesql.js",
+		stylesheet: "http://codemirror.net/1/contrib/sql/css/sqlcolors.css",
+		path: "http://codemirror.net/1/js/",
+		textWrapping: true
+	})
 	var pathname = window.location.pathname
 	if (pathname.lastIndexOf("/", pathname.length - 1) !== -1) {
 		pathname = pathname.substring(0, pathname.length - 1)
 	}
 	$('.executeQuery').click(function() {
-		var sql = $('.sql').val()
+		var sql = codeMirror.getCode()
 		$.ajax({
 			type: 'POST',
 			url: pathname + "/query",
@@ -190,28 +220,35 @@ th,td {
 	})
 
 	function tableCreate(result, sql) {
-		if (result.Error != "") {
-			$('<div class="executedSql">' + sql + '</div><div class="error">' + result.Error + '</div>').appendTo($('.result'))
-			return
-		}
+		var table = ''
 
-		var table = '<div class="executedSql">' + sql + '</div><table><thead><tr>'
-		table += '<th>#</th>'
-		for (var i = 0; i < result.Headers.length; i++) {
-			table += '<th>' +  result.Headers[i] + '</th>'
-		}
+		table += '<table><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
+		+ '<tr><td>' + result.ExecutionTime  + '</td><td>' + result.CostTime  + '</td><td>' + sql + '</td><td>'
+		+ (result.Error || 'OK') + '</td><tr></table><br/>'
 
-		table += '</tr></thead><tbody>'
-
-		for (var i = 0; i < result.Rows.length; i++) {
-			table += '<tr>'
-			for (var j = 0; j <  result.Rows[i].length; j++) {
-				table += '<td>' + result.Rows[i][j] + '</td>'
+		table += '<table>'
+		if (result.Headers && result.Headers.length > 0 ) {
+			table += '<tr><td>#</td>'
+			for (var i = 0; i < result.Headers.length; i++) {
+				table += '<td>' + i + ":" +  result.Headers[i] + '</td>'
 			}
+
 			table += '</tr>'
 		}
-		table += '</tbody></table>'
-		$( table).appendTo($('.result'))
+
+		if (result.Rows && result.Rows.length > 0 ) {
+			for (var i = 0; i < result.Rows.length; i++) {
+				table += '<tr>'
+				for (var j = 0; j <  result.Rows[i].length; j++) {
+					table += '<td>' + result.Rows[i][j] + '</td>'
+				}
+				table += '</tr>'
+			}
+		}
+		table += '</table>'
+
+
+		$(table).prependTo($('.result'))
 	}
 })()
 </script>
