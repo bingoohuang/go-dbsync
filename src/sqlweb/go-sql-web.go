@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/xwb1989/sqlparser"
 	"html/template"
 	"log"
 	"net/http"
@@ -26,7 +27,7 @@ func init() {
 	contextPathArg := flag.String("contextPath", "", "context path")
 	portArg := flag.Int("port", 8381, "Port to serve.")
 	maxRowsArg := flag.Int("maxRows", 1000, "Max number of rows to return.")
-	dataSourceArg := flag.String("dataSource", "user:pass@tcp(127.0.0.1:3306)/db?charset=utf8", "Max number of rows to return.")
+	dataSourceArg := flag.String("dataSource", "user:pass@tcp(127.0.0.1:3306)/db?charset=utf8", "dataSource string.")
 
 	flag.Parse()
 
@@ -123,6 +124,24 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	start := time.Now()
+	sqlParseResult, err := sqlparser.Parse(querySql)
+	_, isInsert := sqlParseResult.(*sqlparser.Insert)
+	_, isDelete := sqlParseResult.(*sqlparser.Delete)
+	_, isUpdate := sqlParseResult.(*sqlparser.Update)
+	_, isSet := sqlParseResult.(*sqlparser.Set)
+	if isInsert || isDelete || isUpdate || isSet {
+		json.NewEncoder(w).Encode(QueryResult{
+			Headers:       nil,
+			Rows:          nil,
+			Error:         "dangerous sql, please get authorized first!",
+			ExecutionTime: start.Format("2006-01-02 15:04:05.000"),
+			CostTime:      time.Since(start).String(),
+		})
+		log.Println("sql", querySql, "is not allowed because of insert/delete/update/set")
+		return
+	}
+
 	header, data, executionTime, costTime, err := executeQuery(querySql, dbDataSource)
 	var errMsg string
 	if err != nil {
@@ -167,11 +186,11 @@ func executeQuery(querySql, dataSource string) ([]string /*header*/, [][]string 
 	}
 	defer db.Close()
 
-	header, data, err, executionTime, costTime := query(db, querySql, maxRows)
-	return header, data, executionTime, costTime, nil
+	header, data, executionTime, costTime, err := query(db, querySql, maxRows)
+	return header, data, executionTime, costTime, err
 }
 
-func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, error, string, string) {
+func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, string, string, error) {
 	log.Printf("querying: %s", query)
 	start := time.Now()
 	executionTime := start.Format("2006-01-02 15:04:05.000")
@@ -179,12 +198,12 @@ func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, error, 
 
 	costTime := time.Since(start).String()
 	if err != nil {
-		return nil, nil, err, executionTime, costTime
+		return nil, nil, executionTime, costTime, err
 	}
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, nil, err, executionTime, costTime
+		return nil, nil, executionTime, costTime, err
 	}
 
 	columnSize := len(columns)
@@ -199,7 +218,7 @@ func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, error, 
 			pointers[i] = &strValues[i+1]
 		}
 		if err := rows.Scan(pointers...); err != nil {
-			return columns, data, err, executionTime, ""
+			return columns, data, executionTime, "", err
 		}
 
 		values := make([]string, columnSize+1)
@@ -215,56 +234,29 @@ func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, error, 
 	}
 
 	costTime = time.Since(start).String()
-	return columns, data, nil, executionTime, costTime
+	return columns, data, executionTime, costTime, nil
 }
 
 const homeHTML = `<!DOCTYPE html>
 <html lang="en">
-<head>
-<title>sql web</title>
+<head> <title>sql web</title>
 <style>
-button {
-	padding:3px 10px;
-}
-.sql {
-	width:60%;
-}
-table {
-	width: 100%;
-	border-collapse: collapse;
-}
-table td {
-	border: 1px solid #eeeeee;
-	white-space: nowrap;
-}
-.error {
-	color: red;
-}
-.searchKey {
-	width: 150px;
-}
-.searchResult span {
-	border: 1px solid #ccc;
-    cursor: pointer;
-    margin-right: 10px;
-}
-
-.searchResult .active {
-	background-color: #ccc;
-	font-weight:bold;
-}
-table tr:first-child td {
-	background-color: aliceblue;
-}
-
+button { padding:3px 10px; }
+.sql { width:60%; }
+table { width: 100%; border-collapse: collapse; }
+table td { border: 1px solid #eeeeee; white-space: nowrap; }
+.error { color: red; }
+.searchKey { width: 150px; }
+.searchResult span { border: 1px solid #ccc; cursor: pointer; margin-right: 10px; }
+.searchResult .active { background-color: #ccc; font-weight:bold; }
+table tr:first-child td { background-color: aliceblue; }
 </style>
 <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
 <script src="http://codemirror.net/1/js/codemirror.js" type="text/javascript"></script>
-
 </head>
 <body>
 <div>
-<input type="text" placeholder="tid or tcode or part of name" class="searchKey">
+<input type="text" placeholder="tid/tcode/name" class="searchKey">
 <button class="searchButton">Search DB</button>
 <span class="searchResult"></span>
 <button class="executeQuery">Execute SQL</button>
@@ -274,13 +266,8 @@ table tr:first-child td {
 SELECT NOW()
 </textarea>
 </div>
-<script type="text/javascript">
-
-</script>
-<br/>
-<div class="result"></div>
+<br/><div class="result"></div>
 <script>
-
 (function() {
 	var codeMirror = CodeMirror.fromTextArea('code', {
 		height: "60px",
@@ -311,8 +298,13 @@ SELECT NOW()
 
 	function tableCreate(result, sql) {
 		var table = '<table><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
-		+ '<tr><td>' + result.ExecutionTime  + '</td><td>' + result.CostTime  + '</td><td>' + sql + '</td><td>'
-		+ (result.Error || 'OK') + '</td><tr></table><br/>'
+		+ '<tr><td>' + result.ExecutionTime  + '</td><td>' + result.CostTime  + '</td><td>' + sql + '</td><td'
+		if (result.Error) {
+			table += ' class="error">' + result.Error
+		} else {
+			table += '>OK'
+		}
+		table += '</td><tr></table><br/>'
 	    + '<table>'
 		if (result.Headers && result.Headers.length > 0 ) {
 			table += '<tr><td>#</td>'
