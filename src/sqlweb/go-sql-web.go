@@ -250,9 +250,12 @@ table td { border: 1px solid #eeeeee; white-space: nowrap; }
 .searchResult span { border: 1px solid #ccc; cursor: pointer; margin-right: 10px; }
 .searchResult .active { background-color: #ccc; font-weight:bold; }
 table tr:first-child td { background-color: aliceblue; }
+.CodeMirror { border-top: 1px solid #f7f7f7; border-bottom: 1px solid #f7f7f7; }
 </style>
 <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
-<script src="http://codemirror.net/1/js/codemirror.js" type="text/javascript"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.28.0/codemirror.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.28.0/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.28.0/mode/sql/sql.min.js"></script>
 </head>
 <body>
 <div>
@@ -260,7 +263,7 @@ table tr:first-child td { background-color: aliceblue; }
 <button class="searchButton">Search DB</button>
 <span class="searchResult"></span>
 </div>
-<div style="border-top: 1px solid black; border-bottom: 1px solid black;">
+<div>
 <textarea  class="sql" id="code" cols="120" rows="5">
 SELECT NOW()
 </textarea>
@@ -269,20 +272,30 @@ SELECT NOW()
 <br/><div class="result"></div>
 <script>
 (function() {
-	var codeMirror = CodeMirror.fromTextArea('code', {
-		height: "60px",
-		parserfile: "http://codemirror.net/1/contrib/sql/js/parsesql.js",
-		stylesheet: "http://codemirror.net/1/contrib/sql/css/sqlcolors.css",
-		path: "http://codemirror.net/1/js/",
-		textWrapping: true
+	var codeMirror = CodeMirror.fromTextArea(document.getElementById('code'), {
+		mode: 'text/x-mysql',
+		indentWithTabs: true,
+		smartIndent: true,
+		lineNumbers: true,
+		matchBrackets : true,
+		autofocus: true,
+		extraKeys: {
+			"Ctrl-Enter": function(cm) {
+			 	var executeQuery = $('.executeQuery')
+			 	if (!executeQuery.prop("disabled")) {
+			 		executeQuery.click()
+			 	}
+			}
+		}
 	})
+	codeMirror.setSize('100%', '60px')
 
 	var pathname = window.location.pathname
 	if (pathname.lastIndexOf("/", pathname.length - 1) !== -1) {
 		pathname = pathname.substring(0, pathname.length - 1)
 	}
 	$('.executeQuery').prop("disabled", true).click(function() {
-		var sql = codeMirror.getCode()
+		var sql = codeMirror.somethingSelected() ? codeMirror.getSelection() : codeMirror.getValue()
 		$.ajax({
 			type: 'POST',
 			url: pathname + "/query",
@@ -352,6 +365,8 @@ SELECT NOW()
 					for (var j = 0; j <  content.length; j++) {
 						searchHtml += '<span tid="' + content[j].MerchantId + '">🥛' + content[j].MerchantName + '</span>'
 					}
+				} else {
+					$('.executeQuery').prop("disabled", true);
 				}
 				searchResult.html(searchHtml)
 				$('.searchResult span:first-child').click()
