@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"os"
 )
 
 var (
@@ -41,6 +42,7 @@ func main() {
 	http.HandleFunc(contextPath+"/", serveHome)
 	http.HandleFunc(contextPath+"/query", serveQuery)
 	http.HandleFunc(contextPath+"/searchDb", serveSearchDb)
+	http.HandleFunc(contextPath+"/sqlHistory", serveSqlHistory)
 	if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
 		log.Fatal(err)
 	}
@@ -67,6 +69,30 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 		log.Println("template execute error", err)
 		w.Write([]byte(err.Error()))
 	}
+}
+
+type SqlHistory struct {
+	SqlTime string
+	Sql     string
+}
+
+func serveSqlHistory(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	// histories := make([]SqlHistory,0)
+
+}
+
+func saveHistory(sql string) {
+	sqlHistory := SqlHistory{
+		time.Now().Format("2006-01-02 15:04:05.000"),
+		sql,
+	}
+	json, _ := json.Marshal(sqlHistory)
+	file, _ := os.OpenFile("sqlHistory.json", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
+	file.Write(json)
+	file.WriteString("\n")
+	file.Close()
 }
 
 type SearchResult struct {
@@ -148,6 +174,8 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 		errMsg = err.Error()
 	}
 
+	saveHistory(querySql)
+
 	queryResult := QueryResult{
 		Headers:       header,
 		Rows:          data,
@@ -179,7 +207,7 @@ func selectDb(tid string) (string, error) {
 	return row[1] + ":" + row[2] + "@tcp(" + row[3] + ":" + row[4] + ")/" + row[5] + "?charset=utf8mb4,utf8&timeout=3s", nil
 }
 
-func executeQuery(querySql, dataSource string) ([]string /*header*/, [][]string /*data*/, string /*executionTime*/, string /*costTime*/, error) {
+func executeQuery(querySql, dataSource string) ([]string /*header*/ , [][]string /*data*/ , string /*executionTime*/ , string /*costTime*/ , error) {
 	db, err := sql.Open("mysql", dataSource)
 	if err != nil {
 		return nil, nil, "", "", err
@@ -259,19 +287,31 @@ table tr:first-child td { background-color: aliceblue; }
 </head>
 <body>
 <div>
-<input type="text" placeholder="tid/tcode/name" class="searchKey">
-<button class="searchButton">Find DB</button>
-<span class="searchResult"></span>
+	<input type="text" placeholder="tid/tcode/name" class="searchKey">
+	<button class="searchButton">Find DB</button>
+	<span class="searchResult"></span>
 </div>
 <div>
-<textarea  class="sql" id="code" cols="120" rows="5">
-SELECT NOW()
-</textarea>
-<button class="executeQuery">Run SQL</button><button class="clearQueryResult">Clear</button>
+	<textarea  class="sql" id="code" cols="120" rows="5">
+	-- input sql here
+	</textarea>
+	<button class="executeQuery">Run SQL</button>
+	<button class="clearQueryResult">Clear</button>
+	<button class="showSqlHistory">History</button>
 </div>
 <br/><div class="result"></div>
 <script>
 (function() {
+	var mac = CodeMirror.keyMap.default == CodeMirror.keyMap.macDefault // 判断是否为Mac
+	var runKey = (mac ? "Cmd" : "Ctrl") + "-Enter"
+	var extraKeys = {}
+	extraKeys[runKey] = function(cm) {
+		var executeQuery = $('.executeQuery')
+		if (!executeQuery.prop("disabled")) {
+			executeQuery.click()
+		}
+	}
+
 	var codeMirror = CodeMirror.fromTextArea(document.getElementById('code'), {
 		mode: 'text/x-mysql',
 		indentWithTabs: true,
@@ -279,14 +319,7 @@ SELECT NOW()
 		lineNumbers: true,
 		matchBrackets : true,
 		autofocus: true,
-		extraKeys: {
-			"Ctrl-Enter": function(cm) {
-			 	var executeQuery = $('.executeQuery')
-			 	if (!executeQuery.prop("disabled")) {
-			 		executeQuery.click()
-			 	}
-			}
-		}
+		extraKeys: extraKeys
 	})
 	codeMirror.setSize('100%', '60px')
 
@@ -380,6 +413,15 @@ SELECT NOW()
 		$(this).addClass('active')
 		activeMerchantId = $(this).attr('tid')
 		$('.executeQuery').prop("disabled", false);
+	})
+
+	$('.showSqlHistory').click(function() {
+		$.ajax({
+			type: 'POST',
+			url: pathname + "/sqlHistory",
+			success: function(content, textStatus, request) {
+			}
+		})
 	})
 })()
 </script>
