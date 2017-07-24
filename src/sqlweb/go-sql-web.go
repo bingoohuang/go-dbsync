@@ -247,7 +247,7 @@ table { width: 100%; border-collapse: collapse; }
 table td { border: 1px solid #eeeeee; white-space: nowrap; }
 .error { color: red; }
 .searchKey { width: 150px; }
-.searchResult span { border: 1px solid #ccc; cursor: pointer; margin-right: 10px; }
+.searchResult span { border: 1px solid #ccc; cursor: pointer; margin-right: 10px; border-radius: 10px; }
 .searchResult .active { background-color: #ccc; font-weight:bold; }
 table tr:first-child td { background-color: aliceblue; }
 .CodeMirror { border-top: 1px solid #f7f7f7; border-bottom: 1px solid #f7f7f7; }
@@ -260,7 +260,7 @@ table tr:first-child td { background-color: aliceblue; }
 <body>
 <div>
 <input type="text" placeholder="tid/tcode/name" class="searchKey">
-<button class="searchButton">Search DB</button>
+<button class="searchButton">Find DB</button>
 <span class="searchResult"></span>
 </div>
 <div>
@@ -363,7 +363,7 @@ SELECT NOW()
 				var searchHtml = ''
 				if (content && content.length ) {
 					for (var j = 0; j <  content.length; j++) {
-						searchHtml += '<span tid="' + content[j].MerchantId + '">🥛' + content[j].MerchantName + '</span>'
+						searchHtml += '<span tid="' + content[j].MerchantId + '">🌀' + content[j].MerchantName + '</span>'
 					}
 				} else {
 					$('.executeQuery').prop("disabled", true);
