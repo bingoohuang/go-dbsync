@@ -259,12 +259,12 @@ table tr:first-child td { background-color: aliceblue; }
 <input type="text" placeholder="tid/tcode/name" class="searchKey">
 <button class="searchButton">Search DB</button>
 <span class="searchResult"></span>
-<button class="executeQuery">Execute SQL</button>
 </div>
 <div style="border-top: 1px solid black; border-bottom: 1px solid black;">
 <textarea  class="sql" id="code" cols="120" rows="5">
 SELECT NOW()
 </textarea>
+<button class="executeQuery">Run SQL</button><button class="clearQueryResult">Clear</button>
 </div>
 <br/><div class="result"></div>
 <script>
@@ -325,6 +325,10 @@ SELECT NOW()
 		table += '</table><br/>'
 		$(table).prependTo($('.result'))
 	}
+
+	$('.clearQueryResult').click(function() {
+		$('.result').html('')
+	})
 
 	$('.searchKey').keydown(function(event){
 		var keyCode =  event.keyCode  || event.which
