@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	_ "github.com/go-sql-driver/mysql"
 	"html/template"
@@ -11,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"errors"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 
 func init() {
 	contextPathArg := flag.String("contextPath", "", "context path")
-	portArg := flag.Int("port", 8080, "Port to serve.")
+	portArg := flag.Int("port", 8381, "Port to serve.")
 	maxRowsArg := flag.Int("maxRows", 1000, "Max number of rows to return.")
 	dataSourceArg := flag.String("dataSource", "user:pass@tcp(127.0.0.1:3306)/db?charset=utf8", "Max number of rows to return.")
 
@@ -82,7 +82,10 @@ func serveSearchDb(w http.ResponseWriter, req *http.Request) {
 	}
 
 	searchSql := `SELECT MERCHANT_NAME, MERCHANT_ID
-		FROM TR_F_MERCHANT WHERE MERCHANT_ID = '` + searchKey + `' OR MERCHANT_CODE = '` + searchKey + `' OR MERCHANT_NAME LIKE '%` + searchKey + `%' LIMIT 3`
+		FROM TR_F_MERCHANT WHERE MERCHANT_ID = '` + searchKey + `'
+		OR MERCHANT_CODE = '` + searchKey + `'
+		OR MERCHANT_NAME LIKE '%` + searchKey + `%'
+		LIMIT 3`
 
 	_, data, _, _, err := executeQuery(searchSql, dataSource)
 	if err != nil {
@@ -157,7 +160,7 @@ func selectDb(tid string) (string, error) {
 	return row[1] + ":" + row[2] + "@tcp(" + row[3] + ":" + row[4] + ")/" + row[5] + "?charset=utf8mb4,utf8&timeout=3s", nil
 }
 
-func executeQuery(querySql, dataSource string) ([]string /*header*/ , [][]string /*data*/ , string /*executionTime*/ , string /*costTime*/ , error) {
+func executeQuery(querySql, dataSource string) ([]string /*header*/, [][]string /*data*/, string /*executionTime*/, string /*costTime*/, error) {
 	db, err := sql.Open("mysql", dataSource)
 	if err != nil {
 		return nil, nil, "", "", err
@@ -250,7 +253,6 @@ table td {
 	background-color: #ccc;
 	font-weight:bold;
 }
-
 table tr:first-child td {
 	background-color: aliceblue;
 }
@@ -287,11 +289,12 @@ SELECT NOW()
 		path: "http://codemirror.net/1/js/",
 		textWrapping: true
 	})
+
 	var pathname = window.location.pathname
 	if (pathname.lastIndexOf("/", pathname.length - 1) !== -1) {
 		pathname = pathname.substring(0, pathname.length - 1)
 	}
-	$('.executeQuery').click(function() {
+	$('.executeQuery').prop("disabled", true).click(function() {
 		var sql = codeMirror.getCode()
 		$.ajax({
 			type: 'POST',
@@ -349,12 +352,13 @@ SELECT NOW()
 			success: function(content, textStatus, request){
 				var searchResult = $('.searchResult')
 				var searchHtml = ''
-				if (content && content.length > 0 ) {
+				if (content && content.length ) {
 					for (var j = 0; j <  content.length; j++) {
-						searchHtml += '<span tid="' + content[j].MerchantId + '">' + content[j].MerchantName + '</span>'
+						searchHtml += '<span tid="' + content[j].MerchantId + '">🥛' + content[j].MerchantName + '</span>'
 					}
 				}
 				searchResult.html(searchHtml)
+				$('.searchResult span:first-child').click()
 			}
 		})
 	})
@@ -364,6 +368,7 @@ SELECT NOW()
 		$('.searchResult span').removeClass('active')
 		$(this).addClass('active')
 		activeMerchantId = $(this).attr('tid')
+		$('.executeQuery').prop("disabled", false);
 	})
 })()
 </script>
