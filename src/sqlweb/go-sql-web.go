@@ -23,6 +23,7 @@ var (
 	port        int
 	maxRows     int
 	dataSource  string
+	writeAuthRequired bool
 )
 
 func init() {
@@ -30,6 +31,7 @@ func init() {
 	portArg := flag.Int("port", 8381, "Port to serve.")
 	maxRowsArg := flag.Int("maxRows", 1000, "Max number of rows to return.")
 	dataSourceArg := flag.String("dataSource", "user:pass@tcp(127.0.0.1:3306)/db?charset=utf8", "dataSource string.")
+	writeAuthRequiredArg := flag.Bool("writeAuthRequired", true, "write auth required")
 
 	flag.Parse()
 
@@ -37,6 +39,7 @@ func init() {
 	port = *portArg
 	maxRows = *maxRowsArg
 	dataSource = *dataSourceArg
+	writeAuthRequired = *writeAuthRequiredArg
 }
 
 func main() {
@@ -140,18 +143,20 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	start := time.Now()
-	sqlParseResult, err := sqlparser.Parse(querySql)
+	if writeAuthRequired {
+		start := time.Now()
+		sqlParseResult, _ := sqlparser.Parse(querySql)
 
-	switch sqlParseResult.(type) {
-	case *sqlparser.Insert, *sqlparser.Delete, *sqlparser.Update, *sqlparser.Set:
-		json.NewEncoder(w).Encode(QueryResult{Headers: nil, Rows: nil,
-			Error:         "dangerous sql, please get authorized first!",
-			ExecutionTime: start.Format("2006-01-02 15:04:05.000"),
-			CostTime:      time.Since(start).String(),
-		})
-		log.Println("sql", querySql, "is not allowed because of insert/delete/update/set")
-		return
+		switch sqlParseResult.(type) {
+		case *sqlparser.Insert, *sqlparser.Delete, *sqlparser.Update, *sqlparser.Set:
+			json.NewEncoder(w).Encode(QueryResult{Headers: nil, Rows: nil,
+				Error:                                     "dangerous sql, please get authorized first!",
+				ExecutionTime:                             start.Format("2006-01-02 15:04:05.000"),
+				CostTime:                                  time.Since(start).String(),
+			})
+			log.Println("sql", querySql, "is not allowed because of insert/delete/update/set")
+			return
+		}
 	}
 
 	var (
