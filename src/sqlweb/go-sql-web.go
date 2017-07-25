@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -10,10 +11,10 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
-	"os"
 )
 
 var (
@@ -42,7 +43,6 @@ func main() {
 	http.HandleFunc(contextPath+"/", serveHome)
 	http.HandleFunc(contextPath+"/query", serveQuery)
 	http.HandleFunc(contextPath+"/searchDb", serveSearchDb)
-	http.HandleFunc(contextPath+"/sqlHistory", serveSqlHistory)
 	if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
 		log.Fatal(err)
 	}
@@ -74,13 +74,6 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 type SqlHistory struct {
 	SqlTime string
 	Sql     string
-}
-
-func serveSqlHistory(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-
-	// histories := make([]SqlHistory,0)
-
 }
 
 func saveHistory(sql string) {
@@ -122,10 +115,7 @@ func serveSearchDb(w http.ResponseWriter, req *http.Request) {
 
 	searchResult := make([]SearchResult, len(data))
 	for i, v := range data {
-		searchResult[i] = SearchResult{
-			v[1],
-			v[2],
-		}
+		searchResult[i] = SearchResult{v[1], v[2]}
 	}
 
 	json.NewEncoder(w).Encode(searchResult)
@@ -152,14 +142,10 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 
 	start := time.Now()
 	sqlParseResult, err := sqlparser.Parse(querySql)
-	_, isInsert := sqlParseResult.(*sqlparser.Insert)
-	_, isDelete := sqlParseResult.(*sqlparser.Delete)
-	_, isUpdate := sqlParseResult.(*sqlparser.Update)
-	_, isSet := sqlParseResult.(*sqlparser.Set)
-	if isInsert || isDelete || isUpdate || isSet {
-		json.NewEncoder(w).Encode(QueryResult{
-			Headers:       nil,
-			Rows:          nil,
+
+	switch sqlParseResult.(type) {
+	case *sqlparser.Insert, *sqlparser.Delete, *sqlparser.Update, *sqlparser.Set:
+		json.NewEncoder(w).Encode(QueryResult{Headers: nil, Rows: nil,
 			Error:         "dangerous sql, please get authorized first!",
 			ExecutionTime: start.Format("2006-01-02 15:04:05.000"),
 			CostTime:      time.Since(start).String(),
@@ -168,23 +154,70 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	header, data, executionTime, costTime, err := executeQuery(querySql, dbDataSource)
+	var (
+		header        []string
+		data          [][]string
+		executionTime string
+		costTime      string
+	)
+
+	isShowHistory := strings.EqualFold("show history", querySql)
+	if isShowHistory {
+		header, data, executionTime, costTime, err = showHistory()
+	} else {
+		saveHistory(querySql)
+		header, data, executionTime, costTime, err = executeQuery(querySql, dbDataSource)
+	}
 	var errMsg string
 	if err != nil {
 		errMsg = err.Error()
 	}
 
-	saveHistory(querySql)
-
-	queryResult := QueryResult{
-		Headers:       header,
-		Rows:          data,
-		Error:         errMsg,
-		ExecutionTime: executionTime,
-		CostTime:      costTime,
-	}
+	queryResult := QueryResult{Headers: header, Rows: data, Error: errMsg, ExecutionTime: executionTime, CostTime: costTime}
 
 	json.NewEncoder(w).Encode(queryResult)
+}
+func showHistory() (header []string, data [][]string, executionTime, costTime string, err error) {
+	header = nil
+	data = nil
+	start := time.Now()
+	executionTime = start.Format("2006-01-02 15:04:05.000")
+
+	file, err := os.OpenFile("sqlHistory.json", os.O_RDONLY, 0660)
+	if err != nil {
+		costTime = time.Since(start).String()
+		err = errors.New("no history")
+		return
+	}
+	defer file.Close()
+
+	header = []string{"ExecutionTime", "Sql"}
+	data = make([][]string, 0)
+
+	reader := bufio.NewReader(file)
+	rowIndex := 0
+	for {
+		rowData, err := reader.ReadBytes('\n')
+		if err != nil {
+			break
+		}
+
+		len := len(rowData)
+		if len == 0 {
+			break
+		}
+
+		rowIndex++
+		var sqlHistory SqlHistory
+		json.Unmarshal(rowData, &sqlHistory)
+		row := []string{strconv.Itoa(rowIndex), sqlHistory.SqlTime, sqlHistory.Sql}
+
+		data = append(data, row)
+	}
+
+	costTime = time.Since(start).String()
+	err = nil
+	return
 }
 
 func selectDb(tid string) (string, error) {
@@ -207,7 +240,7 @@ func selectDb(tid string) (string, error) {
 	return row[1] + ":" + row[2] + "@tcp(" + row[3] + ":" + row[4] + ")/" + row[5] + "?charset=utf8mb4,utf8&timeout=3s", nil
 }
 
-func executeQuery(querySql, dataSource string) ([]string /*header*/ , [][]string /*data*/ , string /*executionTime*/ , string /*costTime*/ , error) {
+func executeQuery(querySql, dataSource string) ([]string /*header*/, [][]string /*data*/, string /*executionTime*/, string /*costTime*/, error) {
 	db, err := sql.Open("mysql", dataSource)
 	if err != nil {
 		return nil, nil, "", "", err
@@ -292,12 +325,9 @@ table tr:first-child td { background-color: aliceblue; }
 	<span class="searchResult"></span>
 </div>
 <div>
-	<textarea  class="sql" id="code" cols="120" rows="5">
-	-- input sql here
-	</textarea>
+	<textarea  class="sql" id="code" cols="120" rows="5">-- input sql here</textarea>
 	<button class="executeQuery">Run SQL</button>
 	<button class="clearQueryResult">Clear</button>
-	<button class="showSqlHistory">History</button>
 </div>
 <br/><div class="result"></div>
 <script>
@@ -355,7 +385,7 @@ table tr:first-child td { background-color: aliceblue; }
 		if (result.Headers && result.Headers.length > 0 ) {
 			table += '<tr><td>#</td>'
 			for (var i = 0; i < result.Headers.length; i++) {
-				table += '<td>' + i + ":" +  result.Headers[i] + '</td>'
+				table += '<td>' +  result.Headers[i] + '</td>'
 			}
 			table += '</tr>'
 		}
@@ -413,15 +443,6 @@ table tr:first-child td { background-color: aliceblue; }
 		$(this).addClass('active')
 		activeMerchantId = $(this).attr('tid')
 		$('.executeQuery').prop("disabled", false);
-	})
-
-	$('.showSqlHistory').click(function() {
-		$.ajax({
-			type: 'POST',
-			url: pathname + "/sqlHistory",
-			success: function(content, textStatus, request) {
-			}
-		})
 	})
 })()
 </script>
