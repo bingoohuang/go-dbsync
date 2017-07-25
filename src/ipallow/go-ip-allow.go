@@ -1,7 +1,7 @@
-package main
+package ipallow
 
 import (
-	"./myutil"
+	"../myutil"
 
 	"fmt"
 	"github.com/BurntSushi/toml"
