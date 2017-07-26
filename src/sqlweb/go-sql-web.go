@@ -18,11 +18,11 @@ import (
 )
 
 var (
-	contextPath string
-	homeTempl   = template.Must(template.New("").Parse(homeHTML))
-	port        int
-	maxRows     int
-	dataSource  string
+	contextPath       string
+	homeTempl         = template.Must(template.New("").Parse(homeHTML))
+	port              int
+	maxRows           int
+	dataSource        string
 	writeAuthRequired bool
 )
 
@@ -150,9 +150,9 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 		switch sqlParseResult.(type) {
 		case *sqlparser.Insert, *sqlparser.Delete, *sqlparser.Update, *sqlparser.Set:
 			json.NewEncoder(w).Encode(QueryResult{Headers: nil, Rows: nil,
-				Error:                                     "dangerous sql, please get authorized first!",
-				ExecutionTime:                             start.Format("2006-01-02 15:04:05.000"),
-				CostTime:                                  time.Since(start).String(),
+				Error:         "dangerous sql, please get authorized first!",
+				ExecutionTime: start.Format("2006-01-02 15:04:05.000"),
+				CostTime:      time.Since(start).String(),
 			})
 			log.Println("sql", querySql, "is not allowed because of insert/delete/update/set")
 			return
@@ -317,6 +317,9 @@ table td { border: 1px solid #eeeeee; white-space: nowrap; }
 .searchResult .active { background-color: #ccc; font-weight:bold; }
 table tr:first-child td { background-color: aliceblue; }
 .CodeMirror { border-top: 1px solid #f7f7f7; border-bottom: 1px solid #f7f7f7; }
+.tables span {float: left; width: 20%; text-decoration: underline; color: blue; padding: 0 5px; cursor: pointer; user-select: none;}
+.result {clear: both; padding-top: 10px;}
+.wrapper {width:100%; max-height:155px; overflow:auto; border: 1px solid #f7f7f7; background-color: #f7f7f7;}
 </style>
 <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.28.0/codemirror.min.js"></script>
@@ -334,7 +337,10 @@ table tr:first-child td { background-color: aliceblue; }
 	<button class="executeQuery">Run SQL</button>
 	<button class="clearQueryResult">Clear</button>
 </div>
-<br/><div class="result"></div>
+<div class="wrapper">
+	<div class="tables"></div>
+</div>
+<div class="result"></div>
 <script>
 (function() {
 	var mac = CodeMirror.keyMap.default == CodeMirror.keyMap.macDefault // 判断是否为Mac
@@ -342,9 +348,7 @@ table tr:first-child td { background-color: aliceblue; }
 	var extraKeys = {}
 	extraKeys[runKey] = function(cm) {
 		var executeQuery = $('.executeQuery')
-		if (!executeQuery.prop("disabled")) {
-			executeQuery.click()
-		}
+		if (!executeQuery.prop("disabled")) executeQuery.click()
 	}
 
 	var codeMirror = CodeMirror.fromTextArea(document.getElementById('code'), {
@@ -353,7 +357,6 @@ table tr:first-child td { background-color: aliceblue; }
 		smartIndent: true,
 		lineNumbers: true,
 		matchBrackets : true,
-		autofocus: true,
 		extraKeys: extraKeys
 	})
 	codeMirror.setSize('100%', '60px')
@@ -362,45 +365,35 @@ table tr:first-child td { background-color: aliceblue; }
 	if (pathname.lastIndexOf("/", pathname.length - 1) !== -1) {
 		pathname = pathname.substring(0, pathname.length - 1)
 	}
-	$('.executeQuery').prop("disabled", true).click(function() {
-		var sql = codeMirror.somethingSelected() ? codeMirror.getSelection() : codeMirror.getValue()
+
+	var executeSql = function(sql) {
 		$.ajax({
 			type: 'POST',
 			url: pathname + "/query",
-			data: {
-				tid: activeMerchantId,
-				sql: sql
-			},
+			data: { tid: activeMerchantId, sql: sql },
 			success: function(content, textStatus, request){
 				tableCreate(content, sql)
 			}
 		})
+	}
+
+	$('.executeQuery').prop("disabled", true).click(function() {
+		var sql = codeMirror.somethingSelected() ? codeMirror.getSelection() : codeMirror.getValue()
+		executeSql(sql)
 	})
 
 	function tableCreate(result, sql) {
 		var table = '<table><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
 		+ '<tr><td>' + result.ExecutionTime  + '</td><td>' + result.CostTime  + '</td><td>' + sql + '</td><td'
-		if (result.Error) {
-			table += ' class="error">' + result.Error
-		} else {
-			table += '>OK'
-		}
-		table += '</td><tr></table><br/>'
-	    + '<table>'
+	    + (result.Error && (' class="error">' + result.Error) || '>OK')
+		+ '</td><tr></table><br/><table>'
+
 		if (result.Headers && result.Headers.length > 0 ) {
-			table += '<tr><td>#</td>'
-			for (var i = 0; i < result.Headers.length; i++) {
-				table += '<td>' +  result.Headers[i] + '</td>'
-			}
-			table += '</tr>'
+			table += '<tr><td>#</td><td>' + result.Headers.join('</td><td>') + '</td></tr>'
 		}
 		if (result.Rows && result.Rows.length > 0 ) {
 			for (var i = 0; i < result.Rows.length; i++) {
-				table += '<tr>'
-				for (var j = 0; j <  result.Rows[i].length; j++) {
-					table += '<td>' + result.Rows[i][j] + '</td>'
-				}
-				table += '</tr>'
+				table += '<tr><td>' + result.Rows[i].join('</td><td>') + '</td></tr>'
 			}
 		}
 		table += '</table><br/>'
@@ -413,19 +406,14 @@ table tr:first-child td { background-color: aliceblue; }
 
 	$('.searchKey').keydown(function(event){
 		var keyCode =  event.keyCode  || event.which
-		if (keyCode == 13) {
-			$('.searchButton').click()
-		}
-	});
+		if (keyCode == 13) $('.searchButton').click()
+	})
 
 	$('.searchButton').click(function() {
-		var searchKey = $('.searchKey').val()
 		$.ajax({
 			type: 'POST',
 			url: pathname + "/searchDb",
-			data: {
-				searchKey: searchKey
-			},
+			data: { searchKey: $('.searchKey').val() },
 			success: function(content, textStatus, request){
 				var searchResult = $('.searchResult')
 				var searchHtml = ''
@@ -434,7 +422,8 @@ table tr:first-child td { background-color: aliceblue; }
 						searchHtml += '<span tid="' + content[j].MerchantId + '">🌀' + content[j].MerchantName + '</span>'
 					}
 				} else {
-					$('.executeQuery').prop("disabled", true);
+					$('.executeQuery').prop("disabled", true)
+					$('.tables').html('')
 				}
 				searchResult.html(searchHtml)
 				$('.searchResult span:first-child').click()
@@ -442,12 +431,54 @@ table tr:first-child td { background-color: aliceblue; }
 		})
 	})
 
+	var showTables = function(result) {
+		var resultHtml = ''
+		if (result.Rows && result.Rows.length > 0 ) {
+			for (var i = 0; i < result.Rows.length; i++) {
+				resultHtml += '<span>' + result.Rows[i][1] + '</span>'
+			}
+		}
+		$('.tables').html(resultHtml)
+	}
+
+	var showTablesAjax = function(activeMerchantId) {
+		$.ajax({
+			type: 'POST',
+			url: pathname + "/query",
+			data: {tid: activeMerchantId, sql: 'show tables'},
+			success: function(content, textStatus, request){
+				showTables(content)
+			}
+		})
+	}
+
+	$('.tables').on('click', 'span', function(event) {
+		var $button = $(this);
+		var tableName = $(this).text()
+		if ($button.data('alreadyclicked')) {
+			$button.data('alreadyclicked', false) // reset
+			if ($button.data('alreadyclickedTimeout')){
+				clearTimeout($button.data('alreadyclickedTimeout')); // prevent this from happening
+			}
+			executeSql('show full columns from ' + tableName)
+		} else {
+			$button.data('alreadyclicked', true);
+			var alreadyclickedTimeout=setTimeout(function(){
+				$button.data('alreadyclicked', false); // reset when it happens
+				executeSql('select * from '+ tableName)
+			},300); // <-- dblclick tolerance here
+			$button.data('alreadyclickedTimeout', alreadyclickedTimeout); // store this id to clear if necessary
+		}
+		return false;
+	})
+
 	var activeMerchantId = null
 	$('.searchResult').on('click', 'span', function() {
 		$('.searchResult span').removeClass('active')
 		$(this).addClass('active')
 		activeMerchantId = $(this).attr('tid')
-		$('.executeQuery').prop("disabled", false);
+		$('.executeQuery').prop("disabled", false)
+		showTablesAjax(activeMerchantId)
 	})
 })()
 </script>
