@@ -308,7 +308,6 @@ const homeHTML = `<!DOCTYPE html>
 <head> <title>sql web</title>
 <style>
 button { padding:3px 10px; }
-.sql { width:60%; }
 table { width: 100%; border-collapse: collapse; }
 table td { border: 1px solid #eeeeee; white-space: nowrap; }
 .error { color: red; }
@@ -316,12 +315,16 @@ table td { border: 1px solid #eeeeee; white-space: nowrap; }
 .searchResult span { border: 1px solid #ccc; cursor: pointer; margin-right: 10px; border-radius: 10px; }
 .searchResult .active { background-color: #ccc; font-weight:bold; }
 table tr:first-child td { background-color: aliceblue; }
-.CodeMirror { border-top: 1px solid #f7f7f7; border-bottom: 1px solid #f7f7f7; }
+.CodeMirror { border-top: 1px solid #f7f7f7; border-bottom: 1px solid #f7f7f7;}
 .tables span {float: left; width: 20%; text-decoration: underline; color: blue; padding: 0 5px; cursor: pointer; user-select: none;}
 .result {clear: both; padding-top: 10px;}
 .wrapper {width:100%; max-height:155px; overflow:auto; border: 1px solid #f7f7f7; background-color: #f7f7f7;}
+.handle { background: #f7f7f7; height: 20px; user-select: none; cursor: row-resize; border-top: 1px solid #f7f7f7; border-bottom: 1px solid #f7f7f7; }
+.handle:before { content: '\2261'; /* https://en.wikipedia.org/wiki/Triple_bar */ color: #999; position: absolute; left: 50%; }
+.handle:hover { background: #f0f0f0; }
+.handle:hover:before { color: #000; }
 </style>
-<script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.28.0/codemirror.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.28.0/codemirror.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.28.0/mode/sql/sql.min.js"></script>
@@ -334,6 +337,7 @@ table tr:first-child td { background-color: aliceblue; }
 </div>
 <div>
 	<textarea  class="sql" id="code" cols="120" rows="5">-- input sql here</textarea>
+	<div class="handle"> </div>
 	<button class="executeQuery">Run SQL</button>
 	<button class="clearQueryResult">Clear</button>
 </div>
@@ -343,6 +347,26 @@ table tr:first-child td { background-color: aliceblue; }
 <div class="result"></div>
 <script>
 (function() {
+	var MIN_HEIGHT = 60
+	var start_y
+	var start_h
+
+	function on_drag(e) {
+		var newHeight = Math.max(MIN_HEIGHT, (start_h + e.y - start_y)) + "px"
+		codeMirror.setSize(null, newHeight)
+	}
+	function on_release(e) {
+		document.body.removeEventListener("mousemove", on_drag);
+		window.removeEventListener("mouseup", on_release);
+	}
+
+	$('.handle')[0].addEventListener("mousedown", function (e) {
+		start_y = e.y
+		start_h = $('.CodeMirror').height()
+		document.body.addEventListener("mousemove", on_drag)
+		window.addEventListener("mouseup", on_release)
+	})
+
 	var mac = CodeMirror.keyMap.default == CodeMirror.keyMap.macDefault // 判断是否为Mac
 	var runKey = (mac ? "Cmd" : "Ctrl") + "-Enter"
 	var extraKeys = {}
