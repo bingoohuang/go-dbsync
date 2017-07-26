@@ -314,10 +314,11 @@ table td { border: 1px solid #eeeeee; white-space: nowrap; }
 .searchKey { width: 150px; }
 .searchResult span { border: 1px solid #ccc; cursor: pointer; margin-right: 10px; border-radius: 10px; }
 .searchResult .active { background-color: #ccc; font-weight:bold; }
-table tr:first-child td { background-color: aliceblue; }
 .CodeMirror { border-top: 1px solid #f7f7f7; border-bottom: 1px solid #f7f7f7;}
 .tables span {float: left; width: 20%; text-decoration: underline; color: blue; padding: 0 5px; cursor: pointer; user-select: none;}
 .result {clear: both; padding-top: 10px;}
+table.executionSummary tr:first-child td { background-color: aliceblue; }
+table.queryResult tr:first-child td { background-color: #f7f7f7; }
 .wrapper {width:100%; max-height:155px; overflow:auto; border: 1px solid #f7f7f7; background-color: #f7f7f7;}
 .handle { background: #f7f7f7; height: 20px; user-select: none; cursor: row-resize; border-top: 1px solid #f7f7f7; border-bottom: 1px solid #f7f7f7; }
 .handle:before { content: '\2261'; /* https://en.wikipedia.org/wiki/Triple_bar */ color: #999; position: absolute; left: 50%; }
@@ -326,6 +327,7 @@ table tr:first-child td { background-color: aliceblue; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.28.0/codemirror.min.js"></script>
+<script src="https://unpkg.com/sql-formatter@2.0.0/dist/sql-formatter.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.28.0/codemirror.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.28.0/mode/sql/sql.min.js"></script>
 </head>
@@ -339,7 +341,11 @@ table tr:first-child td { background-color: aliceblue; }
 	<textarea  class="sql" id="code" cols="120" rows="5">-- input sql here</textarea>
 	<div class="handle"> </div>
 	<button class="executeQuery">Run SQL</button>
-	<button class="clearQueryResult">Clear</button>
+	<button class="formatSql">Format SQL</button>
+&nbsp;
+	<button class="clearSql">Clear SQL</button>
+	<button class="collapseSql">Collapse SQL</button>
+	<button class="clearResult">Clear Result</button>
 </div>
 <div class="wrapper">
 	<div class="tables"></div>
@@ -383,7 +389,11 @@ table tr:first-child td { background-color: aliceblue; }
 		matchBrackets : true,
 		extraKeys: extraKeys
 	})
-	codeMirror.setSize('100%', '60px')
+	codeMirror.setSize(null, '60px')
+
+	$('.collapseSql').click(function(){
+		codeMirror.setSize(null, '60px')
+	});
 
 	var pathname = window.location.pathname
 	if (pathname.lastIndexOf("/", pathname.length - 1) !== -1) {
@@ -407,10 +417,10 @@ table tr:first-child td { background-color: aliceblue; }
 	})
 
 	function tableCreate(result, sql) {
-		var table = '<table><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
+		var table = '<table class="executionSummary"><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
 		+ '<tr><td>' + result.ExecutionTime  + '</td><td>' + result.CostTime  + '</td><td>' + sql + '</td><td'
 	    + (result.Error && (' class="error">' + result.Error) || '>OK')
-		+ '</td><tr></table><br/><table>'
+		+ '</td><tr></table><br/><table class="queryResult">'
 
 		if (result.Headers && result.Headers.length > 0 ) {
 			table += '<tr><td>#</td><td>' + result.Headers.join('</td><td>') + '</td></tr>'
@@ -424,7 +434,7 @@ table tr:first-child td { background-color: aliceblue; }
 		$(table).prependTo($('.result'))
 	}
 
-	$('.clearQueryResult').click(function() {
+	$('.clearResult').click(function() {
 		$('.result').html('')
 	})
 
@@ -503,6 +513,15 @@ table tr:first-child td { background-color: aliceblue; }
 		activeMerchantId = $(this).attr('tid')
 		$('.executeQuery').prop("disabled", false)
 		showTablesAjax(activeMerchantId)
+	})
+
+	$('.formatSql').click(function() {
+		var sql = codeMirror.somethingSelected() ? codeMirror.getSelection() : codeMirror.getValue()
+		var formattedSql = sqlFormatter.format(sql, {language: 'sql'})
+		codeMirror.setValue(formattedSql)
+	})
+	$('.clearSql').click(function() {
+		codeMirror.setValue('')
 	})
 })()
 </script>
