@@ -21,3 +21,5 @@ go-ip-allow
 *.bin.bz2
 sqlHistory.json
 
+src/sqlweb/sqlweb
+src/sqlweb/bindata.go

@@ -1,0 +1,93 @@
+button {
+    padding: 3px 10px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table td {
+    border: 1px solid #eeeeee;
+    white-space: nowrap;
+}
+
+.error {
+    color: red;
+}
+
+.searchKey {
+    width: 150px;
+}
+
+.searchResult span {
+    border: 1px solid #ccc;
+    cursor: pointer;
+    margin-right: 10px;
+    border-radius: 10px;
+}
+
+.searchResult .active {
+    background-color: #ccc;
+    font-weight: bold;
+}
+
+.CodeMirror {
+    border-top: 1px solid #f7f7f7;
+    border-bottom: 1px solid #f7f7f7;
+}
+
+.tables span {
+    float: left;
+    width: 20%;
+    text-decoration: underline;
+    color: blue;
+    padding: 0 5px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.result {
+    clear: both;
+    padding-top: 10px;
+}
+
+table.executionSummary tr:first-child td {
+    background-color: aliceblue;
+}
+
+table.queryResult tr:first-child td {
+    background-color: #f7f7f7;
+}
+
+.wrapper {
+    width: 100%;
+    max-height: 155px;
+    overflow: auto;
+    border: 1px solid #f7f7f7;
+    background-color: #f7f7f7;
+}
+
+.resizeHandle {
+    background: #f7f7f7;
+    height: 20px;
+    user-select: none;
+    cursor: row-resize;
+    border-top: 1px solid #f7f7f7;
+    border-bottom: 1px solid #f7f7f7;
+}
+
+.resizeHandle:before {
+    content: '\2261'; /* https://en.wikipedia.org/wiki/Triple_bar */
+    color: #999;
+    position: absolute;
+    left: 50%;
+}
+
+.resizeHandle:hover {
+    background: #f0f0f0;
+}
+
+.resizeHandle:hover:before {
+    color: #000;
+}
