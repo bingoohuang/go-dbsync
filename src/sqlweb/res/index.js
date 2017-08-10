@@ -74,13 +74,22 @@
         }
         if (result.Rows && result.Rows.length > 0) {
             for (var i = 0; i < result.Rows.length; i++) {
-                table += '<tr><td>' + result.Rows[i].join('</td><td>') + '</td></tr>'
+                table += '<tr><td class="dataCell">' + result.Rows[i].join('</td><td class="dataCell">') + '</td></tr>'
             }
-        } else if (result.Rows && result.Rows.length == 0){
+        } else if (result.Rows && result.Rows.length == 0) {
             table += '<tr><td>-</td><td colspan="' + result.Headers.length + '">0 rows returned</td></tr>'
         }
         table += '</table><br/>'
         $(table).prependTo($('.result'))
+        $('table.queryResult td.dataCell')
+            .unbind("click")
+            .unbind("blur")
+            .dblclick(function (event) {
+                $(this).attr('contenteditable', true).focus()
+            })
+            .blur(function (event) {
+                $(this).attr('contenteditable', false)
+            })
     }
 
     $('.clearResult').click(function () {
