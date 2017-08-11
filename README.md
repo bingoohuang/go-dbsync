@@ -102,3 +102,7 @@ run:<p>`nohup ./go-log-server.linux.bin  -port=10811 > go-log-server.out 2>&1 &`
 All the logs collected from go-log-client will append to related log files with specified naming, like et.log, ab.log and etc.
 
 ![image](https://user-images.githubusercontent.com/1940588/28238816-9745199c-698e-11e7-8ed5-f925130a0826.png)
+
+# go sql web
+1. install go-bindata: `go get -u -v github.com/jteeuwen/go-bindata/...`
+2. install goimports: `go get -u -v golang.org/x/tools/cmd/goimports`

@@ -63,29 +63,10 @@
         executeSql(sql)
     })
 
-    function tableCreate(result, sql) {
-        var table = '<table class="executionSummary"><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
-            + '<tr><td>' + result.ExecutionTime + '</td><td>' + result.CostTime + '</td><td>' + sql + '</td><td'
-            + (result.Error && (' class="error">' + result.Error) || '>OK')
-            + '</td><tr></table><br/>'
-            + '<button class="saveUpdates">save updates</button>'
-            + '<table class="queryResult">'
+    var queryResultId = 0;
 
-        if (result.Headers && result.Headers.length > 0) {
-            table += '<tr><td>#</td><td>' + result.Headers.join('</td><td>') + '</td></tr>'
-        }
-        if (result.Rows && result.Rows.length > 0) {
-            for (var i = 0; i < result.Rows.length; i++) {
-                table += '<tr class="dataRow"><td class="dataCell">' + result.Rows[i].join('</td><td class="dataCell">') + '</td></tr>'
-            }
-        } else if (result.Rows && result.Rows.length == 0) {
-            table += '<tr><td>-</td><td colspan="' + result.Headers.length + '">0 rows returned</td></tr>'
-        }
-        table += '</table><br/>'
-        $(table).prependTo($('.result'))
-        $('table.queryResult td.dataCell')
-            .unbind("click")
-            .unbind("blur")
+    function attachQueryResultEditableEvent() {
+        $('#queryResult' + queryResultId + ' td.dataCell')
             .dblclick(function (event) {
                 if (!$(this).attr('old')) {
                     $(this).attr('old', $(this).text())
@@ -99,26 +80,116 @@
                 } else {
                     $(this).addClass('changedCell')
                 }
-                saveUpdatesActivate($(this).parents('table').prev('button.saveUpdates'))
-            })
-
-        $('button.saveUpdates').unbind('click')
-            .click(function (event) {
-                $(this).next('table').find('tr.dataRow')
-                    .each(function (index, row) {
-                        var cells = $(row).find('td.dataCell')
-                        cells.each(function (jndex, cell) {
-                            if ($(this).attr('old')) {
-                                alert($(cell).text() + "<-" + $(this).attr('old'))
-                            }
-                        })
-                    })
+                toggleUpdatesActivate($(this).parents('table').prev('button.saveUpdates'))
             })
     }
 
-    var saveUpdatesActivate = function($saveUpdates) {
+    function createUpdateSetPart(cells, result, headRow) {
+        var updateSql = null
+        cells.each(function (jndex, cell) {
+            var oldValue = $(this).attr('old')
+            if (oldValue) {
+                var newValue = $(cell).text()
+                if (updateSql == null) {
+                    updateSql = 'update ' + result.TableName + ' set '
+                } else {
+                    updateSql += ', '
+                }
+
+                var fieldName = $(headRow.get(jndex)).text()
+                updateSql += fieldName + ' = "' + newValue + '"'
+            }
+        })
+        return updateSql
+    }
+
+    function createUpdateWherePart(updateSql, result, headRow, cells) {
+        updateSql += ' where '
+        for (var i = 0; i < result.PrimaryKeysIndex.length; ++i) {
+            var ki = result.PrimaryKeysIndex[i] + 1
+            if (i > 0) {
+                updateSql += ', '
+            }
+            var pkName = $(headRow.get(ki)).text()
+            var pkValue = $(cells.get(ki)).attr('old') || $(cells.get(ki)).text()
+            updateSql += pkName + ' = "' + pkValue + '"'
+
+
+        }
+        return updateSql
+    }
+
+    function executeUpdate(updateSql, cells, $saveUpdatesButton) {
+        $.ajax({
+            type: 'POST',
+            url: pathname + "/query",
+            data: {tid: activeMerchantId, sql: updateSql},
+            success: function (content, textStatus, request) {
+                cells.each(function (jndex, cell) {
+                    $(this).removeAttr('old').removeClass('changedCell')
+                    toggleUpdatesActivate($saveUpdatesButton)
+                })
+            }
+        })
+    }
+
+    function attachSaveUpdatesEvent(result) {
+        $('#saveUpdates' + queryResultId).click(function (event) {
+            var $this = $(this);
+            var headRow = $this.next('table').find('tr.headRow').first().find('td')
+            var rows = $this.next('table').find('tr.dataRow')
+
+            rows.each(function (index, row) {
+                var cells = $(row).find('td.dataCell')
+                var updateSql = createUpdateSetPart(cells, result, headRow)
+
+                if (updateSql != null) {
+                    updateSql = createUpdateWherePart(updateSql, result, headRow, cells)
+                }
+
+                if (updateSql != null) {
+                    executeUpdate(updateSql, cells, $this)
+                }
+            })
+        })
+    }
+
+    function attackSaveUpdatesClick(result) {
+        if (result.RowUpdateReady !== true) {
+            return
+        }
+
+        attachQueryResultEditableEvent()
+        attachSaveUpdatesEvent(result)
+    }
+
+    function tableCreate(result, sql) {
+        ++queryResultId
+        var table = '<table class="executionSummary"><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
+            + '<tr><td>' + result.ExecutionTime + '</td><td>' + result.CostTime + '</td><td>' + sql + '</td><td'
+            + (result.Error && (' class="error">' + result.Error) || '>OK')
+            + '</td><tr></table><br/>'
+            + '<button id="saveUpdates' + queryResultId + '" class="saveUpdates">save updates</button>'
+            + '<table id="queryResult' + queryResultId + '" class="queryResult">'
+
+        if (result.Headers && result.Headers.length > 0) {
+            table += '<tr class="headRow"><td>#</td><td>' + result.Headers.join('</td><td>') + '</td></tr>'
+        }
+        if (result.Rows && result.Rows.length > 0) {
+            for (var i = 0; i < result.Rows.length; i++) {
+                table += '<tr class="dataRow"><td class="dataCell">' + result.Rows[i].join('</td><td class="dataCell">') + '</td></tr>'
+            }
+        } else if (result.Rows && result.Rows.length == 0) {
+            table += '<tr><td>-</td><td colspan="' + result.Headers.length + '">0 rows returned</td></tr>'
+        }
+        table += '</table><br/>'
+        $(table).prependTo($('.result'))
+        attackSaveUpdatesClick(result)
+    }
+
+    var toggleUpdatesActivate = function ($saveUpdatesButton) {
         var show = false
-        $saveUpdates.next('table').find('tr.dataRow')
+        $saveUpdatesButton.next('table').find('tr.dataRow')
             .each(function (index, row) {
                 var cells = $(row).find('td.dataCell')
                 cells.each(function (jndex, cell) {
@@ -128,7 +199,7 @@
                     }
                 })
             })
-        $saveUpdates.toggle(show)
+        $saveUpdatesButton.toggle(show)
     }
 
     $('.clearResult').click(function () {
