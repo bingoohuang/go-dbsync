@@ -12,7 +12,7 @@ table td {
     white-space: nowrap;
 }
 
-.error {
+.error, .changedCell{
     color: red;
 }
 
@@ -90,4 +90,9 @@ table.queryResult tr:first-child td {
 
 .resizeHandle:hover:before {
     color: #000;
+}
+
+.saveUpdates {
+    display: none;
+    cursor: pointer;
 }

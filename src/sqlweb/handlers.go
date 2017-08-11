@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/xwb1989/sqlparser"
+	"fmt"
 )
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
@@ -80,19 +81,35 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if writeAuthRequired {
-		start := time.Now()
-		sqlParseResult, _ := sqlparser.Parse(querySql)
+	start := time.Now()
+	sqlParseResult, _ := sqlparser.Parse(querySql)
 
-		switch sqlParseResult.(type) {
-		case *sqlparser.Insert, *sqlparser.Delete, *sqlparser.Update, *sqlparser.Set:
+	switch sqlParseResult.(type) {
+	case *sqlparser.Insert, *sqlparser.Delete, *sqlparser.Update, *sqlparser.Set:
+		if writeAuthRequired {
 			json.NewEncoder(w).Encode(QueryResult{Headers: nil, Rows: nil,
-				Error:         "dangerous sql, please get authorized first!",
+				Error: "dangerous sql, please get authorized first!",
 				ExecutionTime: start.Format("2006-01-02 15:04:05.000"),
-				CostTime:      time.Since(start).String(),
+				CostTime: time.Since(start).String(),
 			})
 			log.Println("sql", querySql, "is not allowed because of insert/delete/update/set")
 			return
+		}
+	case *sqlparser.Select:
+		tableName := findSingleTableName(sqlParseResult)
+		if tableName != "" {
+			fmt.Println("table:", tableName)
+			pris := make([]string, 0)
+			_, data, _, _, err := executeQuery("desc " + tableName, dbDataSource)
+			if err == nil {
+				for i := 0; i < len(data); i++ {
+					if data[i][4] == "PRI" {
+						pris = append(pris, data[i][1])
+					}
+				}
+ 			}
+
+			fmt.Println("pris:", pris)
 		}
 	}
 
@@ -118,4 +135,24 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 	queryResult := QueryResult{Headers: header, Rows: data, Error: errMsg, ExecutionTime: executionTime, CostTime: costTime}
 
 	json.NewEncoder(w).Encode(queryResult)
+}
+
+func findSingleTableName(sqlParseResult sqlparser.Statement) string {
+	selectSql, _ := sqlParseResult.(*sqlparser.Select)
+	if len(selectSql.From) != 1 {
+		return ""
+	}
+
+	tableExpr := selectSql.From[0]
+	aliasTableExpr, ok := tableExpr.(*sqlparser.AliasedTableExpr)
+	if !ok {
+		return ""
+	}
+
+	simpleTableExpr, ok := aliasTableExpr.Expr.(*sqlparser.TableName)
+	if !ok {
+		return ""
+	}
+
+	return string(simpleTableExpr.Name)
 }

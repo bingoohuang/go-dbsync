@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"fmt"
 )
 
 var (
@@ -35,7 +36,9 @@ func main() {
 	http.HandleFunc(contextPath+"/", gzipWrapper(serveHome))
 	http.HandleFunc(contextPath+"/query", serveQuery)
 	http.HandleFunc(contextPath+"/searchDb", serveSearchDb)
-	if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
+	sport := strconv.Itoa(port)
+	fmt.Println("start to listen at ", sport)
+	if err := http.ListenAndServe(":"+sport, nil); err != nil {
 		log.Fatal(err)
 	}
 }

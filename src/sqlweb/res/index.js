@@ -67,14 +67,16 @@
         var table = '<table class="executionSummary"><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
             + '<tr><td>' + result.ExecutionTime + '</td><td>' + result.CostTime + '</td><td>' + sql + '</td><td'
             + (result.Error && (' class="error">' + result.Error) || '>OK')
-            + '</td><tr></table><br/><table class="queryResult">'
+            + '</td><tr></table><br/>'
+            + '<button class="saveUpdates">save updates</button>'
+            + '<table class="queryResult">'
 
         if (result.Headers && result.Headers.length > 0) {
             table += '<tr><td>#</td><td>' + result.Headers.join('</td><td>') + '</td></tr>'
         }
         if (result.Rows && result.Rows.length > 0) {
             for (var i = 0; i < result.Rows.length; i++) {
-                table += '<tr><td class="dataCell">' + result.Rows[i].join('</td><td class="dataCell">') + '</td></tr>'
+                table += '<tr class="dataRow"><td class="dataCell">' + result.Rows[i].join('</td><td class="dataCell">') + '</td></tr>'
             }
         } else if (result.Rows && result.Rows.length == 0) {
             table += '<tr><td>-</td><td colspan="' + result.Headers.length + '">0 rows returned</td></tr>'
@@ -85,11 +87,48 @@
             .unbind("click")
             .unbind("blur")
             .dblclick(function (event) {
+                if (!$(this).attr('old')) {
+                    $(this).attr('old', $(this).text())
+                }
                 $(this).attr('contenteditable', true).focus()
             })
             .blur(function (event) {
                 $(this).attr('contenteditable', false)
+                if ($(this).attr('old') == $(this).text()) {
+                    $(this).removeAttr('old').removeClass('changedCell')
+                } else {
+                    $(this).addClass('changedCell')
+                }
+                saveUpdatesActivate($(this).parents('table').prev('button.saveUpdates'))
             })
+
+        $('button.saveUpdates').unbind('click')
+            .click(function (event) {
+                $(this).next('table').find('tr.dataRow')
+                    .each(function (index, row) {
+                        var cells = $(row).find('td.dataCell')
+                        cells.each(function (jndex, cell) {
+                            if ($(this).attr('old')) {
+                                alert($(cell).text() + "<-" + $(this).attr('old'))
+                            }
+                        })
+                    })
+            })
+    }
+
+    var saveUpdatesActivate = function($saveUpdates) {
+        var show = false
+        $saveUpdates.next('table').find('tr.dataRow')
+            .each(function (index, row) {
+                var cells = $(row).find('td.dataCell')
+                cells.each(function (jndex, cell) {
+                    if ($(this).attr('old')) {
+                        show = true
+                        return false
+                    }
+                })
+            })
+        $saveUpdates.toggle(show)
     }
 
     $('.clearResult').click(function () {
