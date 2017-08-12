@@ -155,15 +155,17 @@
     }
 
     function attackSaveUpdatesClick(result) {
-        if (result.RowUpdateReady !== true) {
-            return
-        }
-
         attachQueryResultEditableEvent()
         attachSaveUpdatesEvent(result)
     }
 
+    var alternateRowsColor = function () {
+        $('#queryResult' + queryResultId + ' tr:even').addClass('rowEven')
+    }
+
     function tableCreate(result, sql) {
+        var rowUpdateReady = result.RowUpdateReady;
+
         ++queryResultId
         var table = '<table class="executionSummary"><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
             + '<tr><td>' + result.ExecutionTime + '</td><td>' + result.CostTime + '</td><td>' + sql + '</td><td'
@@ -177,14 +179,19 @@
         }
         if (result.Rows && result.Rows.length > 0) {
             for (var i = 0; i < result.Rows.length; i++) {
-                table += '<tr class="dataRow"><td class="dataCell">' + result.Rows[i].join('</td><td class="dataCell">') + '</td></tr>'
+                table += '<tr class="dataRow"><td class="dataCell">' + result.Rows[i].join('</td><td class="dataCell">') +'</td></tr>'
             }
         } else if (result.Rows && result.Rows.length == 0) {
             table += '<tr><td>-</td><td colspan="' + result.Headers.length + '">0 rows returned</td></tr>'
         }
         table += '</table><br/>'
         $(table).prependTo($('.result'))
-        attackSaveUpdatesClick(result)
+
+        alternateRowsColor()
+
+        if (rowUpdateReady === true) {
+            attackSaveUpdatesClick(result)
+        }
     }
 
     var toggleUpdatesActivate = function ($saveUpdatesButton) {
@@ -212,6 +219,7 @@
     })
 
     $('.searchButton').click(function () {
+        hideTablesDiv()
         $.ajax({
             type: 'POST',
             url: pathname + "/searchDb",
@@ -250,6 +258,7 @@
             data: {tid: activeMerchantId, sql: 'show tables'},
             success: function (content, textStatus, request) {
                 showTables(content)
+                showTablesDiv()
             }
         })
     }
@@ -263,11 +272,13 @@
                 clearTimeout($button.data('alreadyclickedTimeout')) // prevent this from happening
             }
             executeSql('show full columns from ' + tableName)
+            $('.hideTables').click()
         } else {
             $button.data('alreadyclicked', true)
             var alreadyclickedTimeout = setTimeout(function () {
                 $button.data('alreadyclicked', false) // reset when it happens
                 executeSql('select * from ' + tableName)
+                $('.hideTables').click()
             }, 300) // <-- dblclick tolerance here
             $button.data('alreadyclickedTimeout', alreadyclickedTimeout) // store this id to clear if necessary
         }
@@ -291,4 +302,16 @@
     $('.clearSql').click(function () {
         codeMirror.setValue('')
     })
+    $('.hideTables').click(function () {
+        var visible = $('.tablesWrapper').toggle($(this).text() != 'Hide Tables').is(":visible")
+        $(this).text(visible ? 'Hide Tables' : 'Show Tables')
+    })
+    var hideTablesDiv = function () {
+        $('.tablesWrapper').hide()
+        $('.hideTables').text('Show Tables')
+    }
+    var showTablesDiv = function () {
+        $('.tablesWrapper').show()
+        $('.hideTables').text('Hide Tables')
+    }
 })()
