@@ -35,7 +35,7 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 
 	headers, rows, executionTime, costTime, err := processSqlHistory(querySql, dbDataSource)
 	primaryKeysIndex := findPrimaryKeysIndex(tableName, primaryKeys, headers)
-	rowUpdateReady := len(primaryKeys) == len(primaryKeysIndex)
+	rowUpdateReady := tableName != "" && len(primaryKeys) == len(primaryKeysIndex)
 
 	queryResult := QueryResult{Headers: headers, Rows: rows, Error: gotErrorMessage(err),
 		ExecutionTime: executionTime, CostTime: costTime,

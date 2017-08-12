@@ -47,15 +47,19 @@
         pathname = pathname.substring(0, pathname.length - 1)
     }
 
-    var executeSql = function (sql) {
+    function executeSql(sql) {
         $.ajax({
             type: 'POST',
             url: pathname + "/query",
             data: {tid: activeMerchantId, sql: sql},
             success: function (content, textStatus, request) {
                 tableCreate(content, sql)
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
             }
         })
+        hideTablesDiv()
     }
 
     $('.executeQuery').prop("disabled", true).click(function () {
@@ -65,23 +69,22 @@
 
     var queryResultId = 0;
 
-    function attachQueryResultEditableEvent() {
-        $('#queryResult' + queryResultId + ' td.dataCell')
-            .dblclick(function (event) {
-                if (!$(this).attr('old')) {
-                    $(this).attr('old', $(this).text())
-                }
-                $(this).attr('contenteditable', true).focus()
-            })
-            .blur(function (event) {
-                $(this).attr('contenteditable', false)
-                if ($(this).attr('old') == $(this).text()) {
-                    $(this).removeAttr('old').removeClass('changedCell')
-                } else {
-                    $(this).addClass('changedCell')
-                }
-                toggleUpdatesActivate($(this).parents('table').prev('button.saveUpdates'))
-            })
+    function createDelete(result) {
+        return 'delete from ' + result.TableName + ' '
+    }
+
+    function createInsert(cells, result) {
+        var insertSql = 'insert into ' + result.TableName + '(' + result.Headers.join(',') + ') values ('
+        cells.each(function (jndex, cell) {
+            if (jndex > 1) {
+                insertSql += ', '
+            }
+            if (jndex > 0) {
+                var newValue = $(cell).text()
+                insertSql += '\'' + newValue + '\''
+            }
+        })
+        return insertSql + ')'
     }
 
     function createUpdateSetPart(cells, result, headRow) {
@@ -96,117 +99,240 @@
                     updateSql += ', '
                 }
 
-                var fieldName = $(headRow.get(jndex)).text()
-                updateSql += fieldName + ' = "' + newValue + '"'
+                var fieldName = $(headRow.get(jndex + 1)).text()
+                updateSql += fieldName + ' = \'' + newValue + '\''
             }
         })
         return updateSql
     }
 
-    function createUpdateWherePart(updateSql, result, headRow, cells) {
+    function createWherePart(updateSql, result, headRow, cells) {
         updateSql += ' where '
         for (var i = 0; i < result.PrimaryKeysIndex.length; ++i) {
             var ki = result.PrimaryKeysIndex[i] + 1
             if (i > 0) {
-                updateSql += ', '
+                updateSql += ' and '
             }
-            var pkName = $(headRow.get(ki)).text()
-            var pkValue = $(cells.get(ki)).attr('old') || $(cells.get(ki)).text()
-            updateSql += pkName + ' = "' + pkValue + '"'
-
-
+            var pkName = $(headRow.get(ki + 1)).text()
+            var $cell = $(cells.get(ki));
+            var pkValue = $cell.attr('old') || $cell.text()
+            updateSql += pkName + ' = \'' + pkValue + '\''
         }
         return updateSql
     }
 
-    function executeUpdate(updateSql, cells, $saveUpdatesButton) {
+    function executeUpdate(sqlRowIndices, sqls, $rows) {
         $.ajax({
             type: 'POST',
-            url: pathname + "/query",
-            data: {tid: activeMerchantId, sql: updateSql},
+            url: pathname + "/update",
+            data: {tid: activeMerchantId, sqls: sqls},
             success: function (content, textStatus, request) {
-                cells.each(function (jndex, cell) {
-                    $(this).removeAttr('old').removeClass('changedCell')
-                    toggleUpdatesActivate($saveUpdatesButton)
-                })
+                if (!content.Ok) {
+                    alert(content.Message)
+                    return
+                }
+
+                for (var i = 0; i < content.RowsResult.length; ++i) {
+                    var rowResult = content.RowsResult[i]
+                    if (!rowResult.Ok) {
+                        alert(rowResult.Message)
+                    } else {
+                        var rowIndex = sqlRowIndices[i]
+                        var $row = $($rows[rowIndex])
+
+                        $row.find('td.dataCell').each(function (jndex, cell) {
+                            $(this).removeAttr('old').removeClass('changedCell')
+                        })
+                        $row.find('input[type=checkbox]').prop('checked', false)
+                        $row.remove('.deletedRow').removeClass('clonedRow')
+                    }
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
             }
         })
     }
 
     function attachSaveUpdatesEvent(result) {
         $('#saveUpdates' + queryResultId).click(function (event) {
-            var $this = $(this);
-            var headRow = $this.next('table').find('tr.headRow').first().find('td')
-            var rows = $this.next('table').find('tr.dataRow')
+            var table = $(this).parents('div').next('table')
+            var headRow = table.find('tr.headRow').first().find('td')
 
-            rows.each(function (index, row) {
-                var cells = $(row).find('td.dataCell')
-                var updateSql = createUpdateSetPart(cells, result, headRow)
+            var sqls = []
+            var sqlRowIndices = []
+            var $rows = table.find('tr.dataRow');
+            $rows.each(function (index, row) {
+                var $row = $(row);
+                var cells = $row.find('td.dataCell')
+                if ($row.hasClass('clonedRow')) {
+                    var insertSql = createInsert(cells, result)
+                    sqls[sqls.length] = insertSql
+                    sqlRowIndices[sqlRowIndices.length] = index
+                } else if ($row.hasClass('deletedRow')) {
+                    var deleteSql = createDelete(result)
+                    deleteSql = createWherePart(deleteSql, result, headRow, cells)
+                    sqls[sqls.length] = deleteSql
+                    sqlRowIndices[sqlRowIndices.length] = index
+                } else {
+                    var updateSql = createUpdateSetPart(cells, result, headRow)
 
-                if (updateSql != null) {
-                    updateSql = createUpdateWherePart(updateSql, result, headRow, cells)
-                }
-
-                if (updateSql != null) {
-                    executeUpdate(updateSql, cells, $this)
+                    if (updateSql != null) {
+                        updateSql = createWherePart(updateSql, result, headRow, cells)
+                        sqls[sqls.length] = updateSql
+                        sqlRowIndices[sqlRowIndices.length] = index
+                    }
                 }
             })
+            if (sqls.length == 0) {
+                alert('There is no changes to save!')
+                return
+            }
+
+            var joinedSqls = sqls.join(';\n')
+            if (confirm(joinedSqls + ';\n\nAre you sure to save ?')) {
+                executeUpdate(sqlRowIndices, joinedSqls, $rows)
+            }
         })
     }
 
-    function attackSaveUpdatesClick(result) {
-        attachQueryResultEditableEvent()
-        attachSaveUpdatesEvent(result)
-    }
-
-    var alternateRowsColor = function () {
+    function alternateRowsColor() {
         $('#queryResult' + queryResultId + ' tr:even').addClass('rowEven')
     }
 
+    function toggleRowEditable(event) {
+        var rowChecked = $(this).prop('checked')
+        var dataCells = $(this).parents('tr').find('td.dataCell')
+        if (!rowChecked) {
+            dataCells.attr('contenteditable', false)
+                .unbind('dblclick').unbind('blur')
+            return
+        }
+
+        dataCells.dblclick(function (event) {
+            var $this = $(this)
+            if (!$this.attr('old')) {
+                $this.attr('old', $this.text())
+            }
+            $this.attr('contenteditable', true)
+                .focus()
+                .keydown(function (event) {
+                    var keyCode = event.keyCode || event.which
+                    if (keyCode == 13 && event.ctrlKey) {
+                        $this.blur()
+                    }
+                })
+        }).blur(function (event) {
+            var $this = $(this)
+            $this.attr('contenteditable', false)
+            if ($this.attr('old') == $this.text()) {
+                $this.removeAttr('old').removeClass('changedCell')
+            } else {
+                $this.addClass('changedCell')
+            }
+        })
+    }
+
+    function checkboxEditableChange(checkboxEditable) {
+        var edittable = checkboxEditable.prop('checked')
+        checkboxEditable.parent().find('span.editButtons').toggle(edittable)
+        var dataTable = checkboxEditable.parent().next('table');
+        dataTable.find('.chk').toggle(edittable)
+        var rowCheckboxes = dataTable.find('.dataRow').find('input[type=checkbox]')
+        rowCheckboxes.unbind('click')
+        if (edittable) {
+            rowCheckboxes.click(toggleRowEditable)
+        }
+    }
+
+    function attachEditableEvent() {
+        var checkboxEditable = $('#checkboxEditable' + queryResultId)
+        checkboxEditableChange(checkboxEditable)
+        checkboxEditable.click(function () {
+            checkboxEditableChange(checkboxEditable)
+        })
+    }
+
+    function copyRow($tr) {
+        $tr.find(':checked').prop("checked", false)
+        var $clone = $tr.clone().addClass('clonedRow');
+        $clone.insertAfter($tr)
+        $clone.find('input[type=checkbox]').click(toggleRowEditable).click()
+    }
+
+    function attachDeleteRowsEvent() {
+        $('#deleteRows' + queryResultId).click(function () {
+            var checkboxes = $('#queryResult' + queryResultId + ' :checked')
+            checkboxes.parents('tr').addClass('deletedRow')
+        })
+    }
+
+    function attachCopyRowEvent() {
+        $('#copyRow' + queryResultId).click(function () {
+            var checkboxes = $('#queryResult' + queryResultId + ' :checked')
+            if (checkboxes.length == 0) {
+                alert('please specify which row to copy')
+            } else if (checkboxes.length > 1) {
+                alert('please specify only one row to copy')
+            } else {
+                copyRow($(checkboxes[0]).parents('tr'))
+            }
+        })
+    }
+
     function tableCreate(result, sql) {
-        var rowUpdateReady = result.RowUpdateReady;
+        var rowUpdateReady = result.RowUpdateReady
 
         ++queryResultId
         var table = '<table class="executionSummary"><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
             + '<tr><td>' + result.ExecutionTime + '</td><td>' + result.CostTime + '</td><td>' + sql + '</td><td'
             + (result.Error && (' class="error">' + result.Error) || '>OK')
             + '</td><tr></table><br/>'
-            + '<button id="saveUpdates' + queryResultId + '" class="saveUpdates">save updates</button>'
-            + '<table id="queryResult' + queryResultId + '" class="queryResult">'
+
+        if (rowUpdateReady) {
+            table += '<div><input type="checkbox" id="checkboxEditable' + queryResultId + '" class="checkboxEditable">'
+                + '<label for="checkboxEditable' + queryResultId + '">Editable?</label>'
+                + '<span class="editButtons"><button id="copyRow' + queryResultId + '" class="copyRow">Copy Row</button>'
+                + '<button id="deleteRows' + queryResultId + '">Delete Rows</button>'
+                + '<button id="saveUpdates' + queryResultId + '">Save To DB</button>'
+                + '</span></div>'
+        }
+
+        table += '<table id="queryResult' + queryResultId + '" class="queryResult">'
 
         if (result.Headers && result.Headers.length > 0) {
-            table += '<tr class="headRow"><td>#</td><td>' + result.Headers.join('</td><td>') + '</td></tr>'
+            table += '<tr class="headRow" queryResultId="' + queryResultId + '">'
+            if (rowUpdateReady) {
+                table += '<td><div class="chk checkAll"></div></td>'
+            }
+            table += '<td>#</td><td>' + result.Headers.join('</td><td>') + '</td></tr>'
         }
         if (result.Rows && result.Rows.length > 0) {
             for (var i = 0; i < result.Rows.length; i++) {
-                table += '<tr class="dataRow"><td class="dataCell">' + result.Rows[i].join('</td><td class="dataCell">') +'</td></tr>'
+                table += '<tr class="dataRow">'
+                if (rowUpdateReady) {
+                    table += '<td><div class="chk checkMe"><input type="checkbox"></div></td>'
+                }
+                table += '<td class="dataCell">' + result.Rows[i].join('</td><td class="dataCell">') + '</td></tr>'
             }
         } else if (result.Rows && result.Rows.length == 0) {
-            table += '<tr><td>-</td><td colspan="' + result.Headers.length + '">0 rows returned</td></tr>'
+            table += '<tr class="dataRow clonedRow">'
+            if (rowUpdateReady) {
+                table += '<td><div class="chk checkMe"><input type="checkbox"></div></td>'
+            }
+            table += '<td class="dataCell">' + new Array(result.Headers.length + 1).join('</td><td class="dataCell">') + '</td></tr>'
         }
         table += '</table><br/>'
         $(table).prependTo($('.result'))
 
         alternateRowsColor()
 
-        if (rowUpdateReady === true) {
-            attackSaveUpdatesClick(result)
+        if (rowUpdateReady) {
+            attachEditableEvent()
+            attachCopyRowEvent()
+            attachDeleteRowsEvent()
+            attachSaveUpdatesEvent(result)
         }
-    }
-
-    var toggleUpdatesActivate = function ($saveUpdatesButton) {
-        var show = false
-        $saveUpdatesButton.next('table').find('tr.dataRow')
-            .each(function (index, row) {
-                var cells = $(row).find('td.dataCell')
-                cells.each(function (jndex, cell) {
-                    if ($(this).attr('old')) {
-                        show = true
-                        return false
-                    }
-                })
-            })
-        $saveUpdatesButton.toggle(show)
     }
 
     $('.clearResult').click(function () {
@@ -237,11 +363,14 @@
                 }
                 searchResult.html(searchHtml)
                 $('.searchResult span:first-child').click()
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
             }
         })
     })
 
-    var showTables = function (result) {
+    function showTables(result) {
         var resultHtml = ''
         if (result.Rows && result.Rows.length > 0) {
             for (var i = 0; i < result.Rows.length; i++) {
@@ -251,7 +380,7 @@
         $('.tables').html(resultHtml)
     }
 
-    var showTablesAjax = function (activeMerchantId) {
+    function showTablesAjax(activeMerchantId) {
         $.ajax({
             type: 'POST',
             url: pathname + "/query",
@@ -259,6 +388,9 @@
             success: function (content, textStatus, request) {
                 showTables(content)
                 showTablesDiv()
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
             }
         })
     }
@@ -272,13 +404,13 @@
                 clearTimeout($button.data('alreadyclickedTimeout')) // prevent this from happening
             }
             executeSql('show full columns from ' + tableName)
-            $('.hideTables').click()
+            hideTablesDiv()
         } else {
             $button.data('alreadyclicked', true)
             var alreadyclickedTimeout = setTimeout(function () {
                 $button.data('alreadyclicked', false) // reset when it happens
                 executeSql('select * from ' + tableName)
-                $('.hideTables').click()
+                hideTablesDiv()
             }, 300) // <-- dblclick tolerance here
             $button.data('alreadyclickedTimeout', alreadyclickedTimeout) // store this id to clear if necessary
         }
@@ -306,12 +438,13 @@
         var visible = $('.tablesWrapper').toggle($(this).text() != 'Hide Tables').is(":visible")
         $(this).text(visible ? 'Hide Tables' : 'Show Tables')
     })
-    var hideTablesDiv = function () {
+    function hideTablesDiv() {
         $('.tablesWrapper').hide()
         $('.hideTables').text('Show Tables')
     }
-    var showTablesDiv = function () {
+    function showTablesDiv() {
         $('.tablesWrapper').show()
         $('.hideTables').text('Hide Tables')
     }
-})()
+})
+()

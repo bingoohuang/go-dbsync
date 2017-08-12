@@ -35,6 +35,7 @@ func init() {
 func main() {
 	http.HandleFunc(contextPath+"/", gzipWrapper(serveHome))
 	http.HandleFunc(contextPath+"/query", serveQuery)
+	http.HandleFunc(contextPath+"/update", serveUpdate)
 	http.HandleFunc(contextPath+"/searchDb", serveSearchDb)
 
 	sport := strconv.Itoa(port)

@@ -12,7 +12,7 @@ table td {
     white-space: nowrap;
 }
 
-.error, .changedCell{
+.error, .changedCell {
     color: red;
 }
 
@@ -64,8 +64,24 @@ table tr:first-child {
     background-color: #f7f7f7;
 }
 
+.chk {
+    display: none;
+}
+
+.copyRow {
+    margin-left: 30px;
+}
+
+.clonedRow {
+    background-color: gold !important;
+}
+
 .rowEven {
     background-color: #eeeeee;
+}
+
+.deletedRow {
+    text-decoration: line-through;
 }
 
 .resizeHandle {
@@ -90,11 +106,6 @@ table tr:first-child {
 
 .resizeHandle:hover:before {
     color: #000;
-}
-
-.saveUpdates {
-    display: none;
-    cursor: pointer;
 }
 
 .opsDiv {
