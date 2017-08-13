@@ -39,9 +39,9 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 
 	queryResult := QueryResult{Headers: headers, Rows: rows, Error: gotErrorMessage(err),
 		ExecutionTime: executionTime, CostTime: costTime,
-		TableName: tableName,
+		TableName:        tableName,
 		PrimaryKeysIndex: primaryKeysIndex,
-		RowUpdateReady: rowUpdateReady}
+		RowUpdateReady:   rowUpdateReady}
 
 	json.NewEncoder(w).Encode(queryResult)
 }

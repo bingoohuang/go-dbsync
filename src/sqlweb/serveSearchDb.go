@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
-	"encoding/json"
 )
 
 type SearchResult struct {

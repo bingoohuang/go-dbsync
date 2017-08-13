@@ -1,11 +1,11 @@
 package main
 
 import (
+	"encoding/json"
+	"github.com/xwb1989/sqlparser"
+	"log"
 	"net/http"
 	"time"
-	"github.com/xwb1989/sqlparser"
-	"encoding/json"
-	"log"
 )
 
 func parseSql(w http.ResponseWriter, querySql, dbDataSource string) (string, []string, bool) {
@@ -17,9 +17,9 @@ func parseSql(w http.ResponseWriter, querySql, dbDataSource string) (string, []s
 	case *sqlparser.Insert, *sqlparser.Delete, *sqlparser.Update, *sqlparser.Set:
 		if writeAuthRequired {
 			json.NewEncoder(w).Encode(QueryResult{Headers: nil, Rows: nil,
-				Error: "dangerous sql, please get authorized first!",
+				Error:         "dangerous sql, please get authorized first!",
 				ExecutionTime: start.Format("2006-01-02 15:04:05.000"),
-				CostTime: time.Since(start).String(),
+				CostTime:      time.Since(start).String(),
 			})
 			log.Println("sql", querySql, "is not allowed because of insert/delete/update/set")
 			return "", nil, false

@@ -1,10 +1,11 @@
 package main
 
 import (
-	"net/http"
-	"strings"
-	"strconv"
+	"database/sql"
 	"encoding/json"
+	"net/http"
+	"strconv"
+	"strings"
 )
 
 type UpdateResultRow struct {
@@ -28,16 +29,24 @@ func serveUpdate(w http.ResponseWriter, req *http.Request) {
 	sqls := strings.TrimSpace(req.FormValue("sqls"))
 	tid := strings.TrimSpace(req.FormValue("tid"))
 
-	dbDataSource, err := selectDb(tid)
+	dataSource, err := selectDb(tid)
 	if err != nil {
 		updateResult := UpdateResult{Ok: false, Message: err.Error()}
 		json.NewEncoder(w).Encode(updateResult)
 		return
 	}
 
+	db, err := sql.Open("mysql", dataSource)
+	if err != nil {
+		updateResult := UpdateResult{Ok: false, Message: err.Error()}
+		json.NewEncoder(w).Encode(updateResult)
+		return
+	}
+	defer db.Close()
+
 	resultRows := make([]UpdateResultRow, 0)
 	for _, sql := range strings.Split(sqls, ";\n") {
-		_, _, rowsAffected, err := executeUpdate(sql, dbDataSource)
+		_, _, rowsAffected, err := update(db, sql)
 		if err != nil {
 			resultRows = append(resultRows, UpdateResultRow{Ok: false, Message: err.Error()})
 		} else if rowsAffected == 1 {
