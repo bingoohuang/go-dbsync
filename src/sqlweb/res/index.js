@@ -81,7 +81,11 @@
             }
             if (jndex > 0) {
                 var newValue = $(cell).text()
-                insertSql += '\'' + newValue + '\''
+                if ("(null)" == newValue) {
+                    insertSql += 'null'
+                } else {
+                    insertSql += '\'' + newValue + '\''
+                }
             }
         })
         return insertSql + ')'
@@ -92,15 +96,18 @@
         cells.each(function (jndex, cell) {
             var oldValue = $(this).attr('old')
             if (oldValue) {
-                var newValue = $(cell).text()
                 if (updateSql == null) {
                     updateSql = 'update ' + result.TableName + ' set '
                 } else {
                     updateSql += ', '
                 }
-
                 var fieldName = $(headRow.get(jndex + 1)).text()
-                updateSql += fieldName + ' = \'' + newValue + '\''
+                var newValue = $(cell).text()
+                if ("(null)" == newValue) {
+                    updateSql += fieldName + ' = null'
+                } else {
+                    updateSql += fieldName + ' = \'' + newValue + '\''
+                }
             }
         })
         return updateSql
