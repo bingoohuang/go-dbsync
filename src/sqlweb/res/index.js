@@ -73,6 +73,13 @@
         return 'delete from ' + result.TableName + ' '
     }
 
+    var regex = new RegExp(/[\0\x08\x09\x1a\n\r"'\\\%]/g)
+    var escaper = function escaper(char){
+        var m = ['\\0', '\\x08', '\\x09', '\\x1a', '\\n', '\\r', "'", '"', "\\", '\\\\', "%"];
+        var r = ['\\\\0', '\\\\b', '\\\\t', '\\\\z', '\\\\n', '\\\\r', "''", '""', '\\\\', '\\\\\\\\', '\\%'];
+        return r[m.indexOf(char)];
+    }
+
     function createInsert(cells, result) {
         var insertSql = 'insert into ' + result.TableName + '(' + result.Headers.join(',') + ') values ('
         cells.each(function (jndex, cell) {
@@ -84,7 +91,7 @@
                 if ("(null)" == newValue) {
                     insertSql += 'null'
                 } else {
-                    insertSql += '\'' + newValue + '\''
+                    insertSql += '\'' + newValue.replace(regex, escaper) + '\''
                 }
             }
         })
@@ -106,7 +113,7 @@
                 if ("(null)" == newValue) {
                     updateSql += fieldName + ' = null'
                 } else {
-                    updateSql += fieldName + ' = \'' + newValue + '\''
+                    updateSql += fieldName + ' = \'' + newValue.replace(regex, escaper) + '\''
                 }
             }
         })
@@ -123,7 +130,7 @@
             var pkName = $(headRow.get(ki + 1)).text()
             var $cell = $(cells.get(ki));
             var pkValue = $cell.attr('old') || $cell.text()
-            updateSql += pkName + ' = \'' + pkValue + '\''
+            updateSql += pkName + ' = \'' + pkValue.replace(regex, escaper) + '\''
         }
         return updateSql
     }
