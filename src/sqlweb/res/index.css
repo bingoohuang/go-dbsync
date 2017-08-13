@@ -80,6 +80,10 @@ table tr:first-child {
     background-color: #eeeeee;
 }
 
+.nullCell {
+    background-color: yellow;
+}
+
 .deletedRow {
     text-decoration: line-through;
 }

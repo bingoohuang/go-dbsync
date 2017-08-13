@@ -55,7 +55,7 @@
             success: function (content, textStatus, request) {
                 tableCreate(content, sql)
             },
-            error: function(jqXHR, textStatus, errorThrown) {
+            error: function (jqXHR, textStatus, errorThrown) {
                 alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
             }
         })
@@ -155,7 +155,7 @@
                     }
                 }
             },
-            error: function(jqXHR, textStatus, errorThrown) {
+            error: function (jqXHR, textStatus, errorThrown) {
                 alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
             }
         })
@@ -237,6 +237,8 @@
             } else {
                 $this.addClass('changedCell')
             }
+
+            $this.toggleClass('nullCell', '(null)' == $this.text())
         })
     }
 
@@ -320,7 +322,17 @@
                 if (rowUpdateReady) {
                     table += '<td><div class="chk checkMe"><input type="checkbox"></div></td>'
                 }
-                table += '<td class="dataCell">' + result.Rows[i].join('</td><td class="dataCell">') + '</td></tr>'
+
+                for (var j = 0; j < result.Rows[i].length; ++j) {
+                    var cellValue = result.Rows[i][j]
+                    if ('(null)' == cellValue) {
+                        table += '<td class="dataCell nullCell">' + cellValue + '</td>'
+                    } else {
+                        table += '<td class="dataCell">' + cellValue + '</td>'
+                    }
+                }
+
+                table += '</tr>'
             }
         } else if (result.Rows && result.Rows.length == 0) {
             table += '<tr class="dataRow clonedRow">'
@@ -371,7 +383,7 @@
                 searchResult.html(searchHtml)
                 $('.searchResult span:first-child').click()
             },
-            error: function(jqXHR, textStatus, errorThrown) {
+            error: function (jqXHR, textStatus, errorThrown) {
                 alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
             }
         })
@@ -396,7 +408,7 @@
                 showTables(content)
                 showTablesDiv()
             },
-            error: function(jqXHR, textStatus, errorThrown) {
+            error: function (jqXHR, textStatus, errorThrown) {
                 alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
             }
         })
@@ -445,10 +457,12 @@
         var visible = $('.tablesWrapper').toggle($(this).text() != 'Hide Tables').is(":visible")
         $(this).text(visible ? 'Hide Tables' : 'Show Tables')
     })
+
     function hideTablesDiv() {
         $('.tablesWrapper').hide()
         $('.hideTables').text('Show Tables')
     }
+
     function showTablesDiv() {
         $('.tablesWrapper').show()
         $('.hideTables').text('Hide Tables')
