@@ -20,6 +20,8 @@ var (
 	corpSecret  string
 	agentId     string
 	redirectUri string
+
+	cookieName string
 )
 
 func init() {
@@ -33,6 +35,7 @@ func init() {
 	corpSecretArg := flag.String("corpSecret", "", "cropId")
 	agentIdArg := flag.String("agentId", "", "agentId")
 	redirectUriArg := flag.String("redirectUri", "", "redirectUri")
+	cookieNameArg := flag.String("cookieName", "easyhi_qyapi", "cookieName")
 
 	flag.Parse()
 
@@ -46,6 +49,7 @@ func init() {
 	corpSecret = *corpSecretArg
 	agentId = *agentIdArg
 	redirectUri = *redirectUriArg
+	cookieName = *cookieNameArg
 }
 
 func main() {

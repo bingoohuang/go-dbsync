@@ -152,7 +152,7 @@ func writeUserInfoCookie(w http.ResponseWriter, wxUserInfo *WxUserInfo) *CookieV
 	cookieVal, _ := json.Marshal(value)
 
 	cipher, _ := myutil.CBCEncrypt(encryptKey, string(cookieVal))
-	cookie := http.Cookie{Name: "easyhi_qyapi", Value: cipher, Path: "/", MaxAge: 86400}
+	cookie := http.Cookie{Name: cookieName, Value: cipher, Path: "/", MaxAge: 86400}
 	http.SetCookie(w, &cookie)
 
 	return &value
@@ -177,12 +177,12 @@ func writeCsrfTokenCookie(w http.ResponseWriter, csrfToken string) {
 		log.Println("CBCEncrypt cookie error", err)
 	}
 
-	cookie := http.Cookie{Name: "easyhi_qyapi", Value: cipher, Path: "/", MaxAge: 86400}
+	cookie := http.Cookie{Name: cookieName, Value: cipher, Path: "/", MaxAge: 86400}
 	http.SetCookie(w, &cookie)
 }
 
 func readLoginCookie(r *http.Request) *CookieValue {
-	cookie, _ := r.Cookie("easyhi_qyapi")
+	cookie, _ := r.Cookie(cookieName)
 	if cookie == nil {
 		return nil
 	}
