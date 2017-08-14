@@ -502,6 +502,10 @@
         $(this).text(visible ? 'Hide Tables' : 'Show Tables')
     })
 
+    $('.loginButton').click(function () {
+        window.location = pathname + "/login"
+    })
+
     function hideTablesDiv() {
         $('.tablesWrapper').hide()
         $('.hideTables').text('Show Tables')

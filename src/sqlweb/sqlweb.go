@@ -14,6 +14,12 @@ var (
 	maxRows           int
 	dataSource        string
 	writeAuthRequired bool
+	encryptKey        string
+
+	corpId      string
+	corpSecret  string
+	agentId     string
+	redirectUri string
 )
 
 func init() {
@@ -22,6 +28,11 @@ func init() {
 	maxRowsArg := flag.Int("maxRows", 1000, "Max number of rows to return.")
 	dataSourceArg := flag.String("dataSource", "user:pass@tcp(127.0.0.1:3306)/db?charset=utf8", "dataSource string.")
 	writeAuthRequiredArg := flag.Bool("writeAuthRequired", true, "write auth required")
+	keyArg := flag.String("key", "", "key to encyption or decyption")
+	corpIdArg := flag.String("corpId", "", "corpId")
+	corpSecretArg := flag.String("corpSecret", "", "cropId")
+	agentIdArg := flag.String("agentId", "", "agentId")
+	redirectUriArg := flag.String("redirectUri", "", "redirectUri")
 
 	flag.Parse()
 
@@ -30,6 +41,11 @@ func init() {
 	maxRows = *maxRowsArg
 	dataSource = *dataSourceArg
 	writeAuthRequired = *writeAuthRequiredArg
+	encryptKey = *keyArg
+	corpId = *corpIdArg
+	corpSecret = *corpSecretArg
+	agentId = *agentIdArg
+	redirectUri = *redirectUriArg
 }
 
 func main() {
@@ -37,6 +53,7 @@ func main() {
 	http.HandleFunc(contextPath+"/query", serveQuery)
 	http.HandleFunc(contextPath+"/update", serveUpdate)
 	http.HandleFunc(contextPath+"/searchDb", serveSearchDb)
+	http.HandleFunc(contextPath+"/login", serveLogin)
 
 	sport := strconv.Itoa(port)
 	fmt.Println("start to listen at ", sport)

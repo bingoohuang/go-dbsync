@@ -65,11 +65,14 @@ func CBCEncrypt(strKey, strPlaintext string) (string, error) {
 
 func CBCDecrypt(strKey, strCiphertext string) (string, error) {
 	key := []byte(strKey)
-	ciphertext, _ := base64.URLEncoding.DecodeString(strCiphertext)
+	ciphertext, err := base64.URLEncoding.DecodeString(strCiphertext)
+	if err != nil {
+		return "", err
+	}
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	// The IV needs to be unique, but not secure. Therefore it's common to
