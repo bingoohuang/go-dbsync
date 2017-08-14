@@ -27,8 +27,8 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	tableName, primaryKeys, authAllowed := parseSql(w, querySql, dbDataSource)
-	if !authAllowed {
+	tableName, primaryKeys, sqlAllowed := parseSql(w, req, querySql, dbDataSource)
+	if !sqlAllowed {
 		return
 	}
 

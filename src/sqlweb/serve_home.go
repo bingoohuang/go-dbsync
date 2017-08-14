@@ -1,10 +1,10 @@
 package main
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"strings"
-	"log"
-	"errors"
 )
 
 func serveHome(w http.ResponseWriter, r *http.Request) {

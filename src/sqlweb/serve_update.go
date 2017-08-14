@@ -22,9 +22,12 @@ type UpdateResult struct {
 func serveUpdate(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if writeAuthRequired {
-		updateResult := UpdateResult{Ok: false, Message: "auth required!"}
-		json.NewEncoder(w).Encode(updateResult)
-		return
+		loginCookie := readLoginCookie(req)
+		if loginCookie == nil || loginCookie.Name == "" {
+			updateResult := UpdateResult{Ok: false, Message: "auth required!"}
+			json.NewEncoder(w).Encode(updateResult)
+			return
+		}
 	}
 	sqls := strings.TrimSpace(req.FormValue("sqls"))
 	tid := strings.TrimSpace(req.FormValue("tid"))

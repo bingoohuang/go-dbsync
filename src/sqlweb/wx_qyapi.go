@@ -1,20 +1,20 @@
 package main
 
 import (
-	"net/http"
-	"io/ioutil"
-	"errors"
-	"encoding/json"
-	"time"
 	"../myutil"
-	"sync"
-	"math/rand"
+	"encoding/json"
+	"errors"
+	"io/ioutil"
 	"log"
+	"math/rand"
+	"net/http"
+	"sync"
+	"time"
 )
 
 type WxLoginUserId struct {
 	UserId  string `json:"UserId"`
-	Errcode int `json:"errcode"`
+	Errcode int    `json:"errcode"`
 	Errmsg  string `json:"errmsg"`
 }
 
@@ -79,10 +79,10 @@ func getUserInfo(accessToken, userId string) (*WxUserInfo, error) {
 }
 
 type TokenResult struct {
-	ErrCode          int `json:"errcode"`
+	ErrCode          int    `json:"errcode"`
 	ErrMsg           string `json:"errmsg"`
 	AccessToken      string `json:"access_token"`
-	ExpiresInSeconds int `json:"expires_in"`
+	ExpiresInSeconds int    `json:"expires_in"`
 }
 
 var (
@@ -107,8 +107,14 @@ func getAccessToken(corpId, corpSecret string) (string, error) {
 		return "", err
 	}
 
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
 	var tokenResult TokenResult
-	json.Unmarshal([]byte(resp), &tokenResult)
+	json.Unmarshal(body, &tokenResult)
 	if tokenResult.ErrCode == 0 {
 		accessToken = tokenResult.AccessToken
 		accessTokenExpiredTime = time.Now().Add(time.Duration(tokenResult.ExpiresInSeconds) * time.Second)
@@ -163,29 +169,29 @@ func writeCsrfTokenCookie(w http.ResponseWriter, csrfToken string) {
 	http.SetCookie(w, &cookie)
 }
 
-func readLoginCookie(r *http.Request) *2 {
-cookie, _ := r.Cookie("easyhi_qyapi")
-if cookie == nil {
-return nil
-}
+func readLoginCookie(r *http.Request) *CookieValue {
+	cookie, _ := r.Cookie("easyhi_qyapi")
+	if cookie == nil {
+		return nil
+	}
 
-decrypted, _ := myutil.CBCDecrypt(encryptKey, cookie.Value)
-if decrypted == "" {
-return nil
-}
+	decrypted, _ := myutil.CBCDecrypt(encryptKey, cookie.Value)
+	if decrypted == "" {
+		return nil
+	}
 
-var cookieValue CookieValue
-err := json.Unmarshal([]byte(decrypted), &cookieValue)
-if err != nil {
-return nil
-}
+	var cookieValue CookieValue
+	err := json.Unmarshal([]byte(decrypted), &cookieValue)
+	if err != nil {
+		return nil
+	}
 
-expired, err := time.Parse("2012-11-01 22:08:41.000", cookieValue.ExpiredTime)
-if err != nil || expired.Before(time.Now()) {
-return nil
-}
+	expired, err := time.Parse("2012-11-01 22:08:41.000", cookieValue.ExpiredTime)
+	if err != nil || expired.Before(time.Now()) {
+		return nil
+	}
 
-return &cookieValue
+	return &cookieValue
 }
 
 var r *rand.Rand // Rand for this package.
@@ -199,7 +205,7 @@ func RandomString(strlen int) string {
 	result := ""
 	for i := 0; i < strlen; i++ {
 		index := r.Intn(len(chars))
-		result += chars[index: index+1]
+		result += chars[index : index+1]
 	}
 	return result
 }

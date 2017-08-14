@@ -106,3 +106,6 @@ All the logs collected from go-log-client will append to related log files with 
 # go sql web
 1. install go-bindata: `go get -u -v github.com/jteeuwen/go-bindata/...`
 2. install goimports: `go get -u -v golang.org/x/tools/cmd/goimports`
+3. build: `env GOOS=linux GOARCH=amd64 go build -o go-sql-web.linux.bin`
+4. run: `./sqlweb -dataSource="user:pass@tcp(ip:3306)/db?charset=utf8" -key=encryptKey -corpId=wx_corpId -corpSecret=wx_secret -agentId=wx_agentId -redirectUri=redirectUri`
+
