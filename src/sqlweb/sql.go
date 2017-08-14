@@ -42,6 +42,7 @@ func executeQuery(querySql, dataSource string) ([]string /*header*/, [][]string 
 }
 
 func update(db *sql.DB, sql string) (string, string, int64, error) {
+	saveHistory(sql)
 	log.Printf("execute sql: %s", sql)
 	start := time.Now()
 	executionTime := start.Format("2006-01-02 15:04:05.000")

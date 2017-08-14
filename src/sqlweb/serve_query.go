@@ -14,7 +14,6 @@ type QueryResult struct {
 	CostTime         string
 	TableName        string
 	PrimaryKeysIndex []int
-	RowUpdateReady   bool
 }
 
 func serveQuery(w http.ResponseWriter, req *http.Request) {
@@ -35,13 +34,15 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 
 	headers, rows, executionTime, costTime, err := processSqlHistory(querySql, dbDataSource)
 	primaryKeysIndex := findPrimaryKeysIndex(tableName, primaryKeys, headers)
-	rowUpdateReady := tableName != "" && len(primaryKeys) == len(primaryKeysIndex)
 
-	queryResult := QueryResult{Headers: headers, Rows: rows, Error: gotErrorMessage(err),
-		ExecutionTime: executionTime, CostTime: costTime,
+	queryResult := QueryResult{
+		Headers:          headers,
+		Rows:             rows,
+		Error:            gotErrorMessage(err),
+		ExecutionTime:    executionTime,
+		CostTime:         costTime,
 		TableName:        tableName,
-		PrimaryKeysIndex: primaryKeysIndex,
-		RowUpdateReady:   rowUpdateReady}
+		PrimaryKeysIndex: primaryKeysIndex}
 
 	json.NewEncoder(w).Encode(queryResult)
 }

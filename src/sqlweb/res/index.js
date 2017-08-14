@@ -74,14 +74,22 @@
     }
 
     var regex = new RegExp(/[\0\x08\x09\x1a\n\r"'\\\%]/g)
-    var escaper = function escaper(char){
+    var escaper = function escaper(char) {
         var m = ['\\0', '\\x08', '\\x09', '\\x1a', '\\n', '\\r', "'", '"', "\\", '\\\\', "%"];
         var r = ['\\\\0', '\\\\b', '\\\\t', '\\\\z', '\\\\n', '\\\\r', "''", '""', '\\\\', '\\\\\\\\', '\\%'];
         return r[m.indexOf(char)];
     }
 
     function createInsert(cells, result) {
-        var insertSql = 'insert into ' + result.TableName + '(' + result.Headers.join(',') + ') values ('
+        var insertSql = 'insert into ' + wrapFieldName(result.TableName) + '('
+        for (var i = 0; i < result.Headers.length; ++i) {
+            if (i > 0) {
+                insertSql += ', '
+            }
+            insertSql += wrapFieldName(result.Headers[i])
+        }
+        insertSql += ') values ('
+
         cells.each(function (jndex, cell) {
             if (jndex > 1) {
                 insertSql += ', '
@@ -104,34 +112,63 @@
             var oldValue = $(this).attr('old')
             if (oldValue) {
                 if (updateSql == null) {
-                    updateSql = 'update ' + result.TableName + ' set '
+                    updateSql = 'update ' + wrapFieldName(result.TableName) + ' set '
                 } else {
                     updateSql += ', '
                 }
                 var fieldName = $(headRow.get(jndex + 1)).text()
                 var newValue = $(cell).text()
                 if ("(null)" == newValue) {
-                    updateSql += fieldName + ' = null'
+                    updateSql += wrapFieldName(fieldName) + ' is null'
                 } else {
-                    updateSql += fieldName + ' = \'' + newValue.replace(regex, escaper) + '\''
+                    updateSql += wrapFieldName(fieldName) + ' = \'' + newValue.replace(regex, escaper) + '\''
                 }
             }
         })
         return updateSql
     }
 
+    function wrapFieldName(fieldName) {
+        if (fieldName.indexOf('_') >= 0) return fieldName
+        else return '`' + fieldName + '`'
+    }
+
     function createWherePart(updateSql, result, headRow, cells) {
         updateSql += ' where '
-        for (var i = 0; i < result.PrimaryKeysIndex.length; ++i) {
-            var ki = result.PrimaryKeysIndex[i] + 1
-            if (i > 0) {
-                updateSql += ' and '
+        if (result.PrimaryKeysIndex.length > 0) {
+            for (var i = 0; i < result.PrimaryKeysIndex.length; ++i) {
+                var ki = result.PrimaryKeysIndex[i] + 1
+                if (i > 0) {
+                    updateSql += ' and '
+                }
+                var pkName = $(headRow.get(ki + 1)).text()
+                var $cell = $(cells.get(ki));
+                var pkValue = $cell.attr('old') || $cell.text()
+                updateSql += wrapFieldName(pkName) + ' = \'' + pkValue.replace(regex, escaper) + '\''
             }
-            var pkName = $(headRow.get(ki + 1)).text()
-            var $cell = $(cells.get(ki));
-            var pkValue = $cell.attr('old') || $cell.text()
-            updateSql += pkName + ' = \'' + pkValue.replace(regex, escaper) + '\''
+            return updateSql
+        } else {
+            var wherePart = ''
+            cells.each(function (jndex, cell) {
+                if (jndex > 0) {
+                    var whereValue = $(this).attr('old') || $(cell).text()
+                    if (wherePart != '') {
+                        wherePart += ' and '
+                    }
+                    var fieldName = $(headRow.get(jndex + 1)).text()
+
+                    if ("(null)" == whereValue) {
+                        wherePart += wrapFieldName(fieldName) + ' is null'
+                    } else {
+                        wherePart += wrapFieldName(fieldName) + ' = \'' + whereValue.replace(regex, escaper) + '\''
+                    }
+                }
+            })
+            if (wherePart != null) {
+                updateSql += wherePart
+            }
         }
+
         return updateSql
     }
 
@@ -184,7 +221,7 @@
                     sqls[sqls.length] = insertSql
                     sqlRowIndices[sqlRowIndices.length] = index
                 } else if ($row.hasClass('deletedRow')) {
-                    var deleteSql = createDelete(result)
+                    var deleteSql = 'delete from ' + result.TableName + ' '
                     deleteSql = createWherePart(deleteSql, result, headRow, cells)
                     sqls[sqls.length] = deleteSql
                     sqlRowIndices[sqlRowIndices.length] = index
@@ -297,7 +334,7 @@
     }
 
     function tableCreate(result, sql) {
-        var rowUpdateReady = result.RowUpdateReady
+        var rowUpdateReady = result.TableName && result.TableName != ""
 
         ++queryResultId
         var table = '<table class="executionSummary"><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'

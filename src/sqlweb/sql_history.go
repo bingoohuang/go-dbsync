@@ -61,7 +61,7 @@ func showHistory() (header []string, data [][]string, executionTime, costTime st
 		json.Unmarshal(rowData, &sqlHistory)
 		row := []string{strconv.Itoa(rowIndex), sqlHistory.SqlTime, sqlHistory.Sql}
 
-		data = append(data, row)
+		data =  append([][]string{row}, data...)
 	}
 
 	costTime = time.Since(start).String()

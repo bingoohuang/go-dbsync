@@ -81,7 +81,7 @@ table tr:first-child {
 }
 
 .nullCell {
-    background-color: yellow;
+    background-color: lightyellow;
 }
 
 .deletedRow {
