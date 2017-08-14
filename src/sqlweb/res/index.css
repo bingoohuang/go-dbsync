@@ -68,6 +68,15 @@ table tr:first-child {
     display: none;
 }
 
+.loginAvatar {
+    width: 16px;
+    height: 16px;
+}
+
+.loginName {
+    font-size: 12px;
+}
+
 .copyRow {
     margin-left: 30px;
 }

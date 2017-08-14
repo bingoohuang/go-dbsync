@@ -31,7 +31,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 func loginHtml(w http.ResponseWriter, r *http.Request) string {
 	loginCookie := readLoginCookie(r)
 	if loginCookie != nil && loginCookie.Name != "" && loginCookie.Avatar != "" {
-		return `<img src="` + loginCookie.Avatar + `"/><div class="loginName">` + loginCookie.Name + `</div>`
+		return `<img class="loginAvatar" src="` + loginCookie.Avatar + `"/><span class="loginName">` + loginCookie.Name + `</span>`
 	}
 
 	loginCookie, err := tryLogin(loginCookie, w, r)
@@ -41,7 +41,7 @@ func loginHtml(w http.ResponseWriter, r *http.Request) string {
 	}
 
 	if loginCookie != nil {
-		return `<img src="` + loginCookie.Avatar + `"/><div class="loginName">` + loginCookie.Name + `</div>`
+		return `<img src="` + loginCookie.Avatar + `"/><span class="loginName">` + loginCookie.Name + `</span>`
 	}
 
 	return `<button class="loginButton">Login</button>`
@@ -50,6 +50,7 @@ func loginHtml(w http.ResponseWriter, r *http.Request) string {
 func tryLogin(loginCookie *CookieValue, w http.ResponseWriter, r *http.Request) (*CookieValue, error) {
 	code := r.FormValue("code")
 	state := r.FormValue("state")
+	log.Println("code:", code, ",state:", state)
 	if loginCookie != nil && code != "" && state == loginCookie.CsrfToken {
 		accessToken, err := getAccessToken(corpId, corpSecret)
 		if err != nil {

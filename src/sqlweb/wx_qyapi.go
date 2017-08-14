@@ -86,7 +86,7 @@ type TokenResult struct {
 }
 
 var (
-	accessToken            string = ""
+	accessToken            string
 	accessTokenExpiredTime time.Time
 	accessTokenMutex       sync.Mutex
 )
@@ -129,9 +129,9 @@ func createWxQyLoginUrl(cropId, agentId, redirectUri, csrfToken string) string {
 		cropId + "&agentid=" + agentId + "&redirect_uri=" + redirectUri + "&state=" + csrfToken
 }
 
-func redirectWxQyLogin(w http.ResponseWriter, r *http.Request, url string) {
-	http.Redirect(w, r, url, 302) // Temporarily Move
-}
+//func redirectWxQyLogin(w http.ResponseWriter, r *http.Request, url string) {
+//	http.Redirect(w, r, url, 302) // Temporarily Move
+//}
 
 type CookieValue struct {
 	UserId      string
@@ -147,7 +147,7 @@ func writeUserInfoCookie(w http.ResponseWriter, wxUserInfo *WxUserInfo) *CookieV
 		Name:        wxUserInfo.Name,
 		Avatar:      wxUserInfo.Avatar,
 		CsrfToken:   "",
-		ExpiredTime: time.Now().Add(time.Duration(86400) * time.Second).Format("2012-11-01 22:08:41.000"),
+		ExpiredTime: time.Now().Add(time.Duration(24) * time.Hour).Format(time.RFC3339),
 	}
 	cookieVal, _ := json.Marshal(value)
 
@@ -159,12 +159,24 @@ func writeUserInfoCookie(w http.ResponseWriter, wxUserInfo *WxUserInfo) *CookieV
 }
 
 func writeCsrfTokenCookie(w http.ResponseWriter, csrfToken string) {
-	cookieVal, _ := json.Marshal(CookieValue{
+	cookieVal, err := json.Marshal(CookieValue{
+		UserId:      "",
+		Name:        "",
+		Avatar:      "",
 		CsrfToken:   csrfToken,
-		ExpiredTime: time.Now().Add(time.Duration(86400) * time.Second).Format("2012-11-01 22:08:41.000"),
+		ExpiredTime: time.Now().Add(time.Duration(24) * time.Hour).Format(time.RFC3339),
 	})
+	if err != nil {
+		log.Println("json cookie error", err)
+	}
 
-	cipher, _ := myutil.CBCEncrypt(encryptKey, string(cookieVal))
+	json := string(cookieVal)
+	log.Println("csrf json:", json)
+	cipher, err := myutil.CBCEncrypt(encryptKey, json)
+	if err != nil {
+		log.Println("CBCEncrypt cookie error", err)
+	}
+
 	cookie := http.Cookie{Name: "easyhi_qyapi", Value: cipher, Path: "/", MaxAge: 86400}
 	http.SetCookie(w, &cookie)
 }
@@ -175,6 +187,7 @@ func readLoginCookie(r *http.Request) *CookieValue {
 		return nil
 	}
 
+	log.Println("cookie value:", cookie.Value)
 	decrypted, _ := myutil.CBCDecrypt(encryptKey, cookie.Value)
 	if decrypted == "" {
 		return nil
@@ -183,10 +196,16 @@ func readLoginCookie(r *http.Request) *CookieValue {
 	var cookieValue CookieValue
 	err := json.Unmarshal([]byte(decrypted), &cookieValue)
 	if err != nil {
+		log.Println("unamrshal error:", err)
 		return nil
 	}
 
-	expired, err := time.Parse("2012-11-01 22:08:41.000", cookieValue.ExpiredTime)
+	log.Println("cookie parsed:", cookieValue, ",ExpiredTime:", cookieValue.ExpiredTime)
+
+	expired, err := time.Parse(time.RFC3339, cookieValue.ExpiredTime)
+	if err != nil {
+		log.Println("time.Parse:", err)
+	}
 	if err != nil || expired.Before(time.Now()) {
 		return nil
 	}
