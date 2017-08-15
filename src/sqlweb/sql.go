@@ -79,7 +79,7 @@ func query(db *sql.DB, query string, maxRows int) ([]string, [][]string, string,
 
 	for row := 1; rows.Next() && row <= maxRows; row++ {
 		strValues := make([]sql.NullString, columnSize+1)
-		strValues[0] = sql.NullString{strconv.Itoa(row), true}
+		strValues[0] = sql.NullString{String: strconv.Itoa(row), Valid: true}
 		pointers := make([]interface{}, columnSize)
 		for i := 0; i < columnSize; i++ {
 			pointers[i] = &strValues[i+1]

@@ -19,32 +19,31 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	index := string(MustAsset("res/index.html"))
-	index = strings.Replace(index, "<LOGIN/>", loginHtml(w, r), 1)
-	index = strings.Replace(index, "/*.CSS*/", mergeCss(), 1)
-	index = strings.Replace(index, "/*.SCRIPT*/", mergeScripts(), 1)
+	indexHtml := string(MustAsset("res/index.html"))
 
+	indexHtml = strings.Replace(indexHtml, "<LOGIN/>", loginHtml(w, r), 1)
+	indexHtml = strings.Replace(indexHtml, "/*.CSS*/", mergeCss(), 1)
+	indexHtml = strings.Replace(indexHtml, "/*.SCRIPT*/", mergeScripts(), 1)
 
-	w.Write([]byte(index))
+	w.Write([]byte(indexHtml))
 }
 
 func loginHtml(w http.ResponseWriter, r *http.Request) string {
-	loginCookie := readLoginCookie(r)
-	if loginCookie != nil && loginCookie.Name != "" && loginCookie.Avatar != "" {
-		return `<img class="loginAvatar" src="` + loginCookie.Avatar + `"/><span class="loginName">` + loginCookie.Name + `</span>`
+	if !writeAuthRequired {
+		return ""
 	}
 
-	loginCookie, err := tryLogin(loginCookie, w, r)
-	if err != nil {
-		log.Println("login error:", err)
+	loginCookie := readLoginCookie(r)
+	if loginCookie == nil || loginCookie.Name == "" {
+		loginCookie, _ = tryLogin(loginCookie, w, r)
+	}
+
+	if loginCookie == nil {
 		return `<button class="loginButton">Login</button>`
 	}
 
-	if loginCookie != nil {
-		return `<img class="loginAvatar" src="` + loginCookie.Avatar + `"/><span class="loginName">` + loginCookie.Name + `</span>`
-	}
-
-	return `<button class="loginButton">Login</button>`
+	return `<img class="loginAvatar" src="` + loginCookie.Avatar +
+		`"/><span class="loginName">` + loginCookie.Name + `</span>`
 }
 
 func tryLogin(loginCookie *CookieValue, w http.ResponseWriter, r *http.Request) (*CookieValue, error) {
