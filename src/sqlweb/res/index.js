@@ -56,7 +56,7 @@
                 tableCreate(content, sql)
             },
             error: function (jqXHR, textStatus, errorThrown) {
-                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
             }
         })
         hideTablesDiv()
@@ -67,7 +67,7 @@
         executeSql(sql)
     })
 
-    var queryResultId = 0;
+    var queryResultId = 0
 
     function createDelete(result) {
         return 'delete from ' + result.TableName + ' '
@@ -75,9 +75,9 @@
 
     var regex = new RegExp(/[\0\x08\x09\x1a\n\r"'\\\%]/g)
     var escaper = function escaper(char) {
-        var m = ['\\0', '\\x08', '\\x09', '\\x1a', '\\n', '\\r', "'", '"', "\\", '\\\\', "%"];
-        var r = ['\\\\0', '\\\\b', '\\\\t', '\\\\z', '\\\\n', '\\\\r', "''", '""', '\\\\', '\\\\\\\\', '\\%'];
-        return r[m.indexOf(char)];
+        var m = ['\\0', '\\x08', '\\x09', '\\x1a', '\\n', '\\r', "'", '"', "\\", '\\\\', "%"]
+        var r = ['\\\\0', '\\\\b', '\\\\t', '\\\\z', '\\\\n', '\\\\r', "''", '""', '\\\\', '\\\\\\\\', '\\%']
+        return r[m.indexOf(char)]
     }
 
     function createInsert(cells, result) {
@@ -142,7 +142,7 @@
                     updateSql += ' and '
                 }
                 var pkName = $(headRow.get(ki + 1)).text()
-                var $cell = $(cells.get(ki));
+                var $cell = $(cells.get(ki))
                 var pkValue = $cell.attr('old') || $cell.text()
                 updateSql += wrapFieldName(pkName) + ' = \'' + pkValue.replace(regex, escaper) + '\''
             }
@@ -200,7 +200,7 @@
                 }
             },
             error: function (jqXHR, textStatus, errorThrown) {
-                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
             }
         })
     }
@@ -212,9 +212,9 @@
 
             var sqls = []
             var sqlRowIndices = []
-            var $rows = table.find('tr.dataRow');
+            var $rows = table.find('tr.dataRow')
             $rows.each(function (index, row) {
-                var $row = $(row);
+                var $row = $(row)
                 var cells = $row.find('td.dataCell')
                 if ($row.hasClass('clonedRow')) {
                     var insertSql = createInsert(cells, result)
@@ -289,7 +289,7 @@
     function checkboxEditableChange(checkboxEditable) {
         var edittable = checkboxEditable.prop('checked')
         checkboxEditable.parent().find('span.editButtons').toggle(edittable)
-        var dataTable = checkboxEditable.parent().next('table');
+        var dataTable = checkboxEditable.parent().next('table')
         dataTable.find('.chk').toggle(edittable)
         var rowCheckboxes = dataTable.find('.dataRow').find('input[type=checkbox]')
         rowCheckboxes.unbind('click')
@@ -306,28 +306,99 @@
         })
     }
 
+    function matchCellValue(cellValue, operator, operatorValue) {
+        if (operator == '>=') {
+            return cellValue >= operatorValue
+        } else if (operator == '<=') {
+            return cellValue <= operatorValue
+        } else if (operator == '<>' || operator == '!=') {
+            return cellValue != operatorValue
+        } else if (operator == '>') {
+            return cellValue > operatorValue
+        } else if (operator == '<') {
+            return cellValue < operatorValue
+        } else if (operator == '=') {
+            return cellValue == operatorValue
+        } else if (operator == 'contains') {
+            return cellValue.indexOf(operatorValue) > -1
+        }
+
+        return false
+    }
+
+    function rowFilter(dataTable, filter) {
+        $('tr:gt(0)', dataTable).filter(function () {
+            var found = false
+            $('td.dataCell', $(this)).each(function (index, cell) {
+                var text = $.trim($(this).text()).toUpperCase()
+                if (text.indexOf(filter) > -1) {
+                    found = true
+                    return false
+                }
+            })
+            $(this).toggle(found)
+        })
+    }
+
+    function fieldRowFilter(dataTable, columnName, operator, operatorValue) {
+        var headRow = dataTable.find('tr.headRow').first().find('td')
+        $('tr:gt(0)', dataTable).filter(function () {
+            var found = false
+            $('td.dataCell', $(this)).each(function (index, cell) {
+                var text = $.trim($(cell).text()).toUpperCase()
+                var fieldName = $(headRow.get(index + 1)).text()
+                if ((columnName == "" || columnName == fieldName) && matchCellValue(text, operator, operatorValue)) {
+                    found = true
+                    return false
+                }
+            })
+            $(this).toggle(found)
+        })
+    }
+
+    function parseOperatorValue(operatorValue) {
+        if (operatorValue.indexOf('>=') == 0) {
+            return {operator: '>=', operatorValue: $.trim(operatorValue.substring(2))}
+        } else if (operatorValue.indexOf('<=') == 0) {
+            return {operator: '<=', operatorValue: $.trim(operatorValue.substring(2))}
+        } else if (operatorValue.indexOf('!=') == 0 || operatorValue.indexOf('<>') == 0) {
+            return {operator: '!=', operatorValue: $.trim(operatorValue.substring(2))}
+        } else if (operatorValue.indexOf('>') == 0) {
+            return {operator: '>', operatorValue: $.trim(operatorValue.substring(1))}
+        } else if (operatorValue.indexOf('<') == 0) {
+            return {operator: '<', operatorValue: $.trim(operatorValue.substring(1))}
+        } else if (operatorValue.indexOf('=') == 0) {
+            return {operator: '=', operatorValue: $.trim(operatorValue.substring(1))}
+        } else {
+            return {operator: 'contains', operatorValue: operatorValue}
+        }
+    }
+
     function attachSearchTableEvent() {
         $('#searchTable' + queryResultId).keyup(function () {
-            var filter = $.trim($(this).val()).toUpperCase()
+            var dataTable = $(this).parent().next('table')
 
-            var dataTable = $(this).parent().next('table');
-            $('tr:gt(0)', dataTable).filter(function () {
-                var found = false
-                $('td.dataCell', $(this)).each(function (index, cell) {
-                    var text = $(this).text().toUpperCase()
-                    if (text.indexOf(filter) > -1) {
-                        found = true
-                        return false
-                    }
-                })
-                $(this).toggle(found)
-            })
+            var filter = $.trim($(this).val()).toUpperCase()
+            var seperatePos = filter.indexOf(':')
+            if (seperatePos == -1) {
+                rowFilter(dataTable, filter)
+            } else {
+                var columnName = $.trim(filter.substring(0, seperatePos))
+                if (seperatePos == filter.length - 1) return
+
+                var operatorValue = $.trim(filter.substring(seperatePos + 1))
+
+                var result = parseOperatorValue(operatorValue)
+                if (result.operatorValue == '') return
+
+                fieldRowFilter(dataTable, columnName, result.operator, result.operatorValue)
+            }
         })
     }
 
     function copyRow($tr) {
         $tr.find(':checked').prop("checked", false)
-        var $clone = $tr.clone().addClass('clonedRow');
+        var $clone = $tr.clone().addClass('clonedRow')
         $clone.insertAfter($tr)
         $clone.find('input[type=checkbox]').click(toggleRowEditable).click()
     }
@@ -449,7 +520,7 @@
                 $('.searchResult span:first-child').click()
             },
             error: function (jqXHR, textStatus, errorThrown) {
-                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
             }
         })
     })
@@ -474,7 +545,7 @@
                 showTablesDiv()
             },
             error: function (jqXHR, textStatus, errorThrown) {
-                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
             }
         })
     }
@@ -533,7 +604,7 @@
                 window.location = content.RedirectUrl
             },
             error: function (jqXHR, textStatus, errorThrown) {
-                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown);
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
             }
         })
     })
