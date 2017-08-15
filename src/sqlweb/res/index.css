@@ -81,6 +81,10 @@ table tr:first-child {
     margin-left: 30px;
 }
 
+.searchTable {
+    width: 300px;
+}
+
 .clonedRow {
     background-color: gold !important;
 }

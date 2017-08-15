@@ -306,6 +306,25 @@
         })
     }
 
+    function attachSearchTableEvent() {
+        $('#searchTable' + queryResultId).keyup(function () {
+            var filter = $.trim($(this).val()).toUpperCase()
+
+            var dataTable = $(this).parent().next('table');
+            $('tr:gt(0)', dataTable).filter(function () {
+                var found = false
+                $('td.dataCell', $(this)).each(function (index, cell) {
+                    var text = $(this).text().toUpperCase()
+                    if (text.indexOf(filter) > -1) {
+                        found = true
+                        return false
+                    }
+                })
+                $(this).toggle(found)
+            })
+        })
+    }
+
     function copyRow($tr) {
         $tr.find(':checked').prop("checked", false)
         var $clone = $tr.clone().addClass('clonedRow');
@@ -343,7 +362,8 @@
             + '</td><tr></table><br/>'
 
         if (rowUpdateReady) {
-            table += '<div><input type="checkbox" id="checkboxEditable' + queryResultId + '" class="checkboxEditable">'
+            table += '<div><input id="searchTable' + queryResultId + '" class="searchTable" placeholder="Type to search">'
+                + '<input type="checkbox" id="checkboxEditable' + queryResultId + '" class="checkboxEditable">'
                 + '<label for="checkboxEditable' + queryResultId + '">Editable?</label>'
                 + '<span class="editButtons"><button id="copyRow' + queryResultId + '" class="copyRow">Copy Row</button>'
                 + '<button id="deleteRows' + queryResultId + '">Tag Rows As Deleted</button>'
@@ -392,6 +412,7 @@
 
         if (rowUpdateReady) {
             attachEditableEvent()
+            attachSearchTableEvent()
             attachCopyRowEvent()
             attachDeleteRowsEvent()
             attachSaveUpdatesEvent(result)
