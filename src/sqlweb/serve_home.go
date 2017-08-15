@@ -20,10 +20,10 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	index := string(MustAsset("res/index.html"))
+	index = strings.Replace(index, "<LOGIN/>", loginHtml(w, r), 1)
 	index = strings.Replace(index, "/*.CSS*/", mergeCss(), 1)
 	index = strings.Replace(index, "/*.SCRIPT*/", mergeScripts(), 1)
 
-	index = strings.Replace(index, "<LOGIN/>", loginHtml(w, r), 1)
 
 	w.Write([]byte(index))
 }
