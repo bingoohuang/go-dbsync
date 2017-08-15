@@ -346,7 +346,7 @@
             table += '<div><input type="checkbox" id="checkboxEditable' + queryResultId + '" class="checkboxEditable">'
                 + '<label for="checkboxEditable' + queryResultId + '">Editable?</label>'
                 + '<span class="editButtons"><button id="copyRow' + queryResultId + '" class="copyRow">Copy Row</button>'
-                + '<button id="deleteRows' + queryResultId + '">Delete Rows</button>'
+                + '<button id="deleteRows' + queryResultId + '">Tag Rows As Deleted</button>'
                 + '<button id="saveUpdates' + queryResultId + '">Save To DB</button>'
                 + '</span></div>'
         }

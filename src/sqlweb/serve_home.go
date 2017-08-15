@@ -41,7 +41,7 @@ func loginHtml(w http.ResponseWriter, r *http.Request) string {
 	}
 
 	if loginCookie != nil {
-		return `<img src="` + loginCookie.Avatar + `"/><span class="loginName">` + loginCookie.Name + `</span>`
+		return `<img class="loginAvatar" src="` + loginCookie.Avatar + `"/><span class="loginName">` + loginCookie.Name + `</span>`
 	}
 
 	return `<button class="loginButton">Login</button>`
