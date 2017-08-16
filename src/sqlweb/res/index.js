@@ -595,7 +595,6 @@
     })
 
     $('.loginButton').click(function () {
-        window.location = pathname + "/login"
         $.ajax({
             type: 'POST',
             url: pathname + "/login",
