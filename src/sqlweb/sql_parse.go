@@ -15,12 +15,7 @@ func parseSql(w http.ResponseWriter, r *http.Request, querySql, dbDataSource str
 	sqlParseResult, _ := sqlparser.Parse(querySql)
 	switch sqlParseResult.(type) {
 	case *sqlparser.Insert, *sqlparser.Delete, *sqlparser.Update, *sqlparser.Set:
-		if writeAuthRequired {
-			loginCookie := readLoginCookie(r)
-			if loginCookie != nil && loginCookie.Name != "" {
-				return "", nil, true
-			}
-
+		if !authOk(r) {
 			json.NewEncoder(w).Encode(QueryResult{Headers: nil, Rows: nil,
 				Error:         "dangerous sql, please get authorized first!",
 				ExecutionTime: start.Format("2006-01-02 15:04:05.000"),

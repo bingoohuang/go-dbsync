@@ -21,18 +21,16 @@ type UpdateResult struct {
 
 func serveUpdate(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if writeAuthRequired {
-		loginCookie := readLoginCookie(req)
-		if loginCookie == nil || loginCookie.Name == "" {
-			updateResult := UpdateResult{Ok: false, Message: "auth required!"}
-			json.NewEncoder(w).Encode(updateResult)
-			return
-		}
+	if !authOk(req) {
+		updateResult := UpdateResult{Ok: false, Message: "auth required!"}
+		json.NewEncoder(w).Encode(updateResult)
+		return
 	}
+
 	sqls := strings.TrimSpace(req.FormValue("sqls"))
 	tid := strings.TrimSpace(req.FormValue("tid"))
 
-	dataSource, err := selectDb(tid)
+	dataSource, err := selectDb(tid, req)
 	if err != nil {
 		updateResult := UpdateResult{Ok: false, Message: err.Error()}
 		json.NewEncoder(w).Encode(updateResult)

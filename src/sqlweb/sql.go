@@ -8,9 +8,16 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"net/http"
 )
 
-func selectDb(tid string) (string, error) {
+func selectDb(tid string, req *http.Request) (string, error) {
+	if tid == "trr" {
+		if authOk(req) {
+			return dataSource, nil
+		}
+	}
+
 	queryDbSql := "SELECT DB_USERNAME, DB_PASSWORD, PROXY_IP, PROXY_PORT, DB_NAME FROM TR_F_DB WHERE MERCHANT_ID = '" + tid + "' LIMIT 1"
 
 	_, data, _, _, err := executeQuery(queryDbSql, dataSource)

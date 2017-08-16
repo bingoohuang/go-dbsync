@@ -21,7 +21,7 @@ func serveQuery(w http.ResponseWriter, req *http.Request) {
 	querySql := strings.TrimSpace(req.FormValue("sql"))
 	tid := strings.TrimSpace(req.FormValue("tid"))
 
-	dbDataSource, err := selectDb(tid)
+	dbDataSource, err := selectDb(tid, req)
 	if err != nil {
 		http.Error(w, err.Error(), 405)
 		return

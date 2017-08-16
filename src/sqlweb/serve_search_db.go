@@ -19,6 +19,15 @@ func serveSearchDb(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if searchKey == "trr" {
+		if authOk(req) {
+			var searchResult [1]SearchResult
+			searchResult[0] = SearchResult{MerchantName: "trr", MerchantId: "trr"}
+			json.NewEncoder(w).Encode(searchResult)
+			return
+		}
+	}
+
 	searchSql := "SELECT MERCHANT_NAME, MERCHANT_ID FROM TR_F_MERCHANT WHERE MERCHANT_ID = '" + searchKey +
 		"' OR MERCHANT_CODE = '" + searchKey + "' OR MERCHANT_NAME LIKE '%" + searchKey + "%' LIMIT 3"
 
@@ -30,7 +39,7 @@ func serveSearchDb(w http.ResponseWriter, req *http.Request) {
 
 	searchResult := make([]SearchResult, len(data))
 	for i, v := range data {
-		searchResult[i] = SearchResult{v[1], v[2]}
+		searchResult[i] = SearchResult{MerchantName: v[1], MerchantId: v[2]}
 	}
 
 	json.NewEncoder(w).Encode(searchResult)
