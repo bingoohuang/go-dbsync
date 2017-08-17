@@ -69,10 +69,6 @@
 
     var queryResultId = 0
 
-    function createDelete(result) {
-        return 'delete from ' + result.TableName + ' '
-    }
-
     var regex = new RegExp(/[\0\x08\x09\x1a\n\r"'\\\%]/g)
     var escaper = function escaper(char) {
         var m = ['\\0', '\\x08', '\\x09', '\\x1a', '\\n', '\\r', "'", '"', "\\", '\\\\', "%"]
@@ -308,15 +304,15 @@
 
     function matchCellValue(cellValue, operator, operatorValue) {
         if (operator == '>=') {
-            return cellValue >= operatorValue
+            return +cellValue >= +operatorValue
         } else if (operator == '<=') {
-            return cellValue <= operatorValue
+            return +cellValue <= +operatorValue
         } else if (operator == '<>' || operator == '!=') {
             return cellValue != operatorValue
         } else if (operator == '>') {
-            return cellValue > operatorValue
+            return +cellValue > +operatorValue
         } else if (operator == '<') {
-            return cellValue < operatorValue
+            return +cellValue < +operatorValue
         } else if (operator == '=') {
             return cellValue == operatorValue
         } else if (operator == 'contains') {
@@ -330,7 +326,7 @@
         $('tr:gt(0)', dataTable).filter(function () {
             var found = false
             $('td.dataCell', $(this)).each(function (index, cell) {
-                var text = $.trim($(this).text()).toUpperCase()
+                var text = $.trim($(cell).text()).toUpperCase()
                 if (text.indexOf(filter) > -1) {
                     found = true
                     return false
@@ -592,6 +588,7 @@
     $('.hideTables').click(function () {
         var visible = $('.tablesWrapper').toggle($(this).text() != 'Hide Tables').is(":visible")
         $(this).text(visible ? 'Hide Tables' : 'Show Tables')
+        $('.searchTableNames').toggle(visible)
     })
 
     $('.loginButton').click(function () {
@@ -611,11 +608,25 @@
     function hideTablesDiv() {
         $('.tablesWrapper').hide()
         $('.hideTables').text('Show Tables')
+        $('.searchTableNames').hide()
     }
 
     function showTablesDiv() {
         $('.tablesWrapper').show()
         $('.hideTables').text('Hide Tables')
+        $('.searchTableNames').show()
     }
+
+    $('.searchTableNames').keyup(function () {
+        var filter = $.trim($(this).val()).toUpperCase()
+
+        $('.tables span').each(function (index, span) {
+            var $span = $(span)
+            var text = $.trim($span.text()).toUpperCase()
+            var contains = text.indexOf(filter) > -1
+            $span.toggle(contains)
+        })
+    })
+
 })
 ()
