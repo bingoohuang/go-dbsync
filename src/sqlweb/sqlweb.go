@@ -22,6 +22,7 @@ var (
 	redirectUri string
 
 	cookieName string
+	devMode    bool // to disable css/js minify
 )
 
 func init() {
@@ -36,6 +37,7 @@ func init() {
 	agentIdArg := flag.String("agentId", "", "agentId")
 	redirectUriArg := flag.String("redirectUri", "", "redirectUri")
 	cookieNameArg := flag.String("cookieName", "easyhi_qyapi", "cookieName")
+	devModeArg := flag.Bool("devMode", false, "devMode(disable js/css minify)")
 
 	flag.Parse()
 
@@ -50,6 +52,7 @@ func init() {
 	agentId = *agentIdArg
 	redirectUri = *redirectUriArg
 	cookieName = *cookieNameArg
+	devMode = *devModeArg
 }
 
 func main() {
