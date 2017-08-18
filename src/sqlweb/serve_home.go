@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/tdewolff/minify"
 	"github.com/tdewolff/minify/css"
+	"github.com/tdewolff/minify/html"
 	"github.com/tdewolff/minify/js"
 	"log"
 	"net/http"
@@ -23,14 +24,27 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	indexHtml := string(MustAsset("res/index.html"))
-	indexHtml = strings.Replace(indexHtml, "<LOGIN/>", loginHtml(w, r), 1)
+	html := minifyHtml(indexHtml)
+
+	html = strings.Replace(html, "<LOGIN/>", loginHtml(w, r), 1)
 
 	css, js := minifyCssJs(mergeCss(), mergeScripts())
-	indexHtml = strings.Replace(indexHtml, "/*.CSS*/", css, 1)
-	indexHtml = strings.Replace(indexHtml, "/*.SCRIPT*/", js, 1)
+	html = strings.Replace(html, "/*.CSS*/", css, 1)
+	html = strings.Replace(html, "/*.SCRIPT*/", js, 1)
 
-	w.Write([]byte(indexHtml))
+	w.Write([]byte(html))
 }
+func minifyHtml(htmlStr string) string {
+	if devMode {
+		return htmlStr
+	}
+
+	mini := minify.New()
+	mini.AddFunc("text/html", html.Minify)
+	minified, _ := mini.String("text/html", htmlStr)
+	return minified
+}
+
 func minifyCssJs(mergedCss, mergedJs string) (string, string) {
 	if devMode {
 		return mergedCss, mergedJs
