@@ -24,9 +24,9 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	indexHtml := string(MustAsset("res/index.html"))
-	html := minifyHtml(indexHtml)
+	indexHtml = strings.Replace(indexHtml, "<LOGIN/>", loginHtml(w, r), 1)
 
-	html = strings.Replace(html, "<LOGIN/>", loginHtml(w, r), 1)
+	html := minifyHtml(indexHtml)
 
 	css, js := minifyCssJs(mergeCss(), mergeScripts())
 	html = strings.Replace(html, "/*.CSS*/", css, 1)
