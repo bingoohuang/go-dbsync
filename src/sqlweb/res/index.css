@@ -64,6 +64,10 @@ table tr:first-child {
     background-color: #f7f7f7;
 }
 
+.divTranspose {
+    display: none;
+}
+
 .chk {
     display: none;
 }

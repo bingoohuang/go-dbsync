@@ -406,6 +406,46 @@
         })
     }
 
+    function transposeRow(queryResultId, tr) {
+        var rowHtml = '<button id="returnToNormalView' + queryResultId + '">Return to Normal View</button>'
+            + '<table><tr><td>Column Name</td><td>Column Value</td></tr>'
+        var table = $(tr).parents('table')
+        var headRow = table.find('tr.headRow').first().find('td')
+
+        $(tr).find('td').each(function (index, cell) {
+            if (index > 1) {
+                var fieldName = $(headRow.get(index)).text()
+                rowHtml += '<tr><td>' + fieldName + '</td><td>' + $(cell).text() + '</td></tr>'
+            }
+        })
+
+        rowHtml += '</table>'
+
+        var $divTranspose = $('#divTranspose' + queryResultId);
+        $divTranspose.html(rowHtml).show()
+        var $divResult = $('#divResult' + queryResultId);
+        $divResult.hide()
+
+        $('#returnToNormalView' + queryResultId).click(function () {
+            $divTranspose.hide()
+            $divResult.show()
+        })
+    }
+
+    function attachRowTransposesEvent() {
+        $('#rowTranspose' + queryResultId).click(function () {
+            var checkboxes = $('#queryResult' + queryResultId + ' :checked')
+            if (checkboxes.length == 0) {
+                alert('please specify which row to transpose')
+            } else if (checkboxes.length > 1) {
+                alert('please specify only one row to transpose')
+            } else {
+                var tr = $(checkboxes[0]).parents('tr')
+                transposeRow(queryResultId, tr)
+            }
+        })
+    }
+
     function attachCopyRowEvent() {
         $('#copyRow' + queryResultId).click(function () {
             var checkboxes = $('#queryResult' + queryResultId + ' :checked')
@@ -428,6 +468,9 @@
             + (result.Error && (' class="error">' + result.Error) || '>OK')
             + '</td><tr></table><br/>'
 
+
+        table += '<div id="divTranspose' + queryResultId + '" class="divTranspose"></div>'
+        table += '<div id="divResult' + queryResultId + '">'
         if (rowUpdateReady) {
             table += '<div><input id="searchTable' + queryResultId + '" class="searchTable" placeholder="Type to search">'
                 + '<input type="checkbox" id="checkboxEditable' + queryResultId + '" class="checkboxEditable">'
@@ -435,6 +478,7 @@
                 + '<span class="editButtons"><button id="copyRow' + queryResultId + '" class="copyRow">Copy Row</button>'
                 + '<button id="deleteRows' + queryResultId + '">Tag Rows As Deleted</button>'
                 + '<button id="saveUpdates' + queryResultId + '">Save To DB</button>'
+                + '<button id="rowTranspose' + queryResultId + '">Transpose</button>'
                 + '</span></div>'
         }
 
@@ -472,7 +516,7 @@
             }
             table += '<td class="dataCell">' + new Array(result.Headers.length + 1).join('</td><td class="dataCell">') + '</td></tr>'
         }
-        table += '</table><br/>'
+        table += '</table><br/><div>'
         $(table).prependTo($('.result'))
 
         alternateRowsColor()
@@ -482,6 +526,7 @@
             attachSearchTableEvent()
             attachCopyRowEvent()
             attachDeleteRowsEvent()
+            attachRowTransposesEvent()
             attachSaveUpdatesEvent(result)
         }
     }
