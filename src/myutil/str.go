@@ -101,8 +101,14 @@ func ContainsAll(str string, sub []string) bool {
 	}
 
 	for _, v := range sub {
-		if !strings.Contains(str, v) {
-			return false
+		if StartsWith(v, '^') {
+			if strings.Index(str, v[1:]) != 0 {
+				return false
+			}
+		} else {
+			if !strings.Contains(str, v) {
+				return false
+			}
 		}
 	}
 
@@ -110,10 +116,18 @@ func ContainsAll(str string, sub []string) bool {
 }
 
 func StartWithBlank(str string) bool {
-	if str != "" {
+	if str == "" {
 		return false
 	}
 
 	ch := str[0]
 	return ch == ' ' || ch == '\t'
+}
+
+func StartsWith(str string, ch byte) bool {
+	if str == "" {
+		return false
+	}
+
+	return ch == str[0]
 }

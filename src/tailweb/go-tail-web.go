@@ -720,7 +720,6 @@ button {
 
 	var locateLog = function(parent, direction) {
 		requesting(parent, true)
-		var tabcontentId = parent.prop('id')
 		$.ajax({
 			type: 'POST',
 			url: pathname + "/locate",
@@ -733,7 +732,7 @@ button {
 				direction: direction,
 				pagingLog: 'no'
 			},
-			success: function(content, textStatus, request){
+			success: function(content, textStatus, request) {
 				$('.StartPos', parent).val(request.getResponseHeader('Start-Pos'))
 				$('.EndPos', parent).val(request.getResponseHeader('End-Pos'))
 
