@@ -459,10 +459,7 @@
         })
     }
 
-    function tableCreate(result, sql) {
-        var rowUpdateReady = result.TableName && result.TableName != ""
-
-        ++queryResultId
+    function createResultTableHtml(result, sql, rowUpdateReady) {
         var table = '<table class="executionSummary"><tr><td>time</td><td>cost</td><td>sql</td><td>error</td></tr>'
             + '<tr><td>' + result.ExecutionTime + '</td><td>' + result.CostTime + '</td><td>' + sql + '</td><td'
             + (result.Error && (' class="error">' + result.Error) || '>OK')
@@ -517,6 +514,15 @@
             table += '<td class="dataCell">' + new Array(result.Headers.length + 1).join('</td><td class="dataCell">') + '</td></tr>'
         }
         table += '</table><br/><div>'
+
+        return table;
+    }
+
+    function tableCreate(result, sql) {
+        var rowUpdateReady = result.TableName && result.TableName != ""
+
+        ++queryResultId
+        var table = createResultTableHtml(result, sql, rowUpdateReady)
         $(table).prependTo($('.result'))
 
         alternateRowsColor()
