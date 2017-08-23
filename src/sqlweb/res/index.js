@@ -203,7 +203,7 @@
 
     function attachSaveUpdatesEvent(result) {
         $('#saveUpdates' + queryResultId).click(function (event) {
-            var table = $(this).parents('div').next('table')
+            var table = $('#queryResult' + queryResultId)
             var headRow = table.find('tr.headRow').first().find('td')
 
             var sqls = []
@@ -406,18 +406,25 @@
         })
     }
 
-    function transposeRow(queryResultId, tr) {
+    function transposeRows(queryResultId, checkboxes) {
         var rowHtml = '<button id="returnToNormalView' + queryResultId + '">Return to Normal View</button>'
-            + '<table><tr><td>Column Name</td><td>Column Value</td></tr>'
-        var table = $(tr).parents('table')
+            + '<table><tr><td>Column Name</td>'
+
+        checkboxes.each(function (index, chk) {
+            rowHtml += '<td>#' + $(chk).parents('tr').find('td:eq(1)').text() + '</td>'
+        })
+        rowHtml += '</tr>'
+
+        var table = $('#queryResult' + queryResultId)
         var headRow = table.find('tr.headRow').first().find('td')
 
-        $(tr).find('td').each(function (index, cell) {
-            if (index > 1) {
-                var fieldName = $(headRow.get(index)).text()
-                rowHtml += '<tr><td>' + fieldName + '</td><td>' + $(cell).text() + '</td></tr>'
-            }
-        })
+        for (var i = 2; i < headRow.length; ++i) {
+            rowHtml += '<tr><td>' + $(headRow[i]).text() + '</td>'
+            checkboxes.each(function (chkIndex, chk) {
+                rowHtml += '<td>' + $(chk).parents('tr').find('td').eq(i).text() + '</td>'
+            })
+            rowHtml += '</tr>'
+        }
 
         rowHtml += '</table>'
 
@@ -435,14 +442,7 @@
     function attachRowTransposesEvent() {
         $('#rowTranspose' + queryResultId).click(function () {
             var checkboxes = $('#queryResult' + queryResultId + ' :checked')
-            if (checkboxes.length == 0) {
-                alert('please specify which row to transpose')
-            } else if (checkboxes.length > 1) {
-                alert('please specify only one row to transpose')
-            } else {
-                var tr = $(checkboxes[0]).parents('tr')
-                transposeRow(queryResultId, tr)
-            }
+            transposeRows(queryResultId, checkboxes)
         })
     }
 
