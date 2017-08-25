@@ -109,3 +109,6 @@ All the logs collected from go-log-client will append to related log files with 
 3. build: `env GOOS=linux GOARCH=amd64 go build -o go-sql-web.linux.bin`
 4. run: `./sqlweb -dataSource="user:pass@tcp(ip:3306)/db?charset=utf8" -cookieName=customizedCookieName -key=size16encryptKey -corpId=wx_corpId -corpSecret=wx_secret -agentId=wx_agentId -redirectUri=redirectUri`
 
+# go redis web
+try to implement redis web in go like [phpRedisAdmin](https://github.com/erikdubbelboer/phpRedisAdmin).
+

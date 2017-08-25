@@ -1,0 +1,113 @@
+.sprite {
+    background-image: url(spritesheet.png);
+    background-repeat: no-repeat;
+    display: block;
+}
+
+.sprite-add {
+    width: 16px;
+    height: 16px;
+    background-position: -5px -5px;
+}
+
+.sprite-delete {
+    width: 16px;
+    height: 16px;
+    background-position: -31px -5px;
+}
+
+.sprite-edit {
+    width: 16px;
+    height: 16px;
+    background-position: -57px -5px;
+}
+
+.sprite-export {
+    width: 16px;
+    height: 16px;
+    background-position: -83px -5px;
+}
+
+.sprite-flush {
+    width: 16px;
+    height: 16px;
+    background-position: -5px -31px;
+}
+
+.sprite-folder-open {
+    width: 16px;
+    height: 16px;
+    background-position: -31px -31px;
+}
+
+.sprite-import {
+    width: 16px;
+    height: 16px;
+    background-position: -57px -31px;
+}
+
+.sprite-info {
+    width: 16px;
+    height: 16px;
+    background-position: -83px -31px;
+}
+
+.sprite-logout {
+    width: 16px;
+    height: 16px;
+    background-position: -5px -57px;
+}
+
+.sprite-reset {
+    width: 16px;
+    height: 16px;
+    background-position: -31px -57px;
+}
+
+.sprite-save {
+    width: 16px;
+    height: 16px;
+    background-position: -57px -57px;
+}
+
+.sprite-tree-folder-collapsed {
+    width: 12px;
+    height: 24px;
+    background-position: -83px -57px;
+}
+
+.sprite-tree-folder-expanded {
+    width: 12px;
+    height: 24px;
+    background-position: -109px -5px;
+}
+
+.sprite-tree-lastnode {
+    width: 12px;
+    height: 13px;
+    background-position: -109px -39px;
+}
+
+.sprite-tree-lastnode-collapsed {
+    width: 12px;
+    height: 17px;
+    background-position: -105px -62px;
+}
+
+.sprite-tree-lastnode-expanded {
+    width: 12px;
+    height: 17px;
+    background-position: -5px -89px;
+}
+
+.sprite-tree-node {
+    width: 12px;
+    height: 24px;
+    background-position: -27px -89px;
+}
+
+.sprite-tree-vline {
+    width: 5px;
+    height: 1px;
+    background-position: -49px -89px;
+}

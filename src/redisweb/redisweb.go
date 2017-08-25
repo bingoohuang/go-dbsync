@@ -31,6 +31,7 @@ func init() {
 func main() {
 	http.HandleFunc(contextPath+"/", myutil.GzipWrapper(serveHome))
 	http.HandleFunc(contextPath+"/favicon.png", serveFavicon)
+	http.HandleFunc(contextPath+"/listKeys", serveListKeys)
 
 	sport := strconv.Itoa(port)
 	fmt.Println("start to listen at ", sport)
