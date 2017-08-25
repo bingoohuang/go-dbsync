@@ -1,4 +1,4 @@
-package main
+package myutil
 
 import (
 	"compress/gzip"
@@ -16,7 +16,7 @@ func (w gzipResponseWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
-func gzipWrapper(fn http.HandlerFunc) http.HandlerFunc {
+func GzipWrapper(fn http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			fn(w, r)

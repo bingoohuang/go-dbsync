@@ -23,3 +23,5 @@ sqlHistory.json
 
 src/sqlweb/sqlweb
 src/sqlweb/bindata.go
+src/redisweb/redisweb
+src/redisweb/bindata.go

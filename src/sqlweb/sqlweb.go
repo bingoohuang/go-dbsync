@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"../myutil"
 )
 
 var (
@@ -56,7 +57,7 @@ func init() {
 }
 
 func main() {
-	http.HandleFunc(contextPath+"/", gzipWrapper(serveHome))
+	http.HandleFunc(contextPath+"/", myutil.GzipWrapper(serveHome))
 	http.HandleFunc(contextPath+"/query", serveQuery)
 	http.HandleFunc(contextPath+"/favicon.ico", serveFavicon)
 	http.HandleFunc(contextPath+"/update", serveUpdate)
