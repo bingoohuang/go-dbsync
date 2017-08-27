@@ -38,7 +38,7 @@ $(function () {
                 url: pathname + "/showContent",
                 data: {key: key, type: type},
                 success: function (result, textStatus, request) {
-                    showContent(key, type, result.Content, result.Ttl)
+                    showContent(key, type, result.Content, result.Ttl, result.Size, result.Encoding)
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
@@ -48,13 +48,13 @@ $(function () {
         })
     }
 
-    function showContent(key, type, content, ttl) {
+    function showContent(key, type, content, ttl, size, encoding) {
         contentHtml = '<h1>' + key + '</h1>'
         contentHtml += '<table>' +
             '<tr><td>Type:</td><td>' + type + '</td></tr>' +
             '<tr><td>TTL:</td><td>' + ttl + '</td></tr>' +
-            '<tr><td>Encoding:</td><td>todo</td></tr>' +
-            '<tr><td>Size:</td><td>todo</td></tr>' +
+            '<tr><td>Encoding:</td><td>' + encoding + '</td></tr>' +
+            '<tr><td>Size:</td><td>' + size + '</td></tr>' +
             '<tr><td>Value:</td><td>' + content + '</td></tr>' +
             '</table>'
 

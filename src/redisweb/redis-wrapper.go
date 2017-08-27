@@ -1,8 +1,8 @@
 package main
 
 import (
+	"errors"
 	"github.com/go-redis/redis"
-	"time"
 )
 
 func newRedisClient() *redis.Client {
@@ -13,20 +13,33 @@ func newRedisClient() *redis.Client {
 	})
 }
 
-func ttlContent(key string) (time.Duration, error) {
-	client := newRedisClient()
-	defer client.Close()
-
-	ttl, err := client.TTL(key).Result()
-	return ttl, err
+type ContentResult struct {
+	Content  string
+	Ttl      string
+	Encoding string
+	Size     int64
 }
 
-func displayContent(key string, valType string) (string, error) {
+func displayContent(key string, valType string) (*ContentResult, error) {
 	client := newRedisClient()
 	defer client.Close()
 
-	content, err := client.Get(key).Result()
-	return content, err
+	switch valType {
+	case "string":
+		content, _ := client.Get(key).Result()
+		ttl, _ := client.TTL(key).Result()
+		size, _ := client.StrLen(key).Result()
+		encoding, _ := client.ObjectEncoding(key).Result()
+		return &ContentResult{
+			Content:  content,
+			Ttl:      ttl.String(),
+			Encoding: encoding,
+			Size:     size,
+		}, nil
+	}
+
+	return nil, errors.New("unknown type " + valType)
+
 }
 
 type KeysResult struct {
