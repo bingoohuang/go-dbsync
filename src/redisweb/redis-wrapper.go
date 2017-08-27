@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"github.com/go-redis/redis"
 )
 
@@ -13,32 +12,73 @@ func newRedisClient() *redis.Client {
 	})
 }
 
+func deleteKey(key string) string {
+	client := newRedisClient()
+	defer client.Close()
+
+	ok, err := client.Del(key).Result()
+	if ok == 1 {
+		return "OK"
+	} else {
+		return err.Error()
+	}
+}
+
 type ContentResult struct {
+	Exists   bool
 	Content  string
 	Ttl      string
 	Encoding string
 	Size     int64
+	Error    string
 }
 
-func displayContent(key string, valType string) (*ContentResult, error) {
+func displayContent(key string, valType string) *ContentResult {
 	client := newRedisClient()
 	defer client.Close()
 
+	exists, _ := client.Exists(key).Result()
+	if exists == 0 {
+		return &ContentResult{
+			Exists:   false,
+			Content:  "",
+			Ttl:      "",
+			Encoding: "",
+			Size:     0,
+			Error:    "",
+		}
+	}
+
+	var errorMessage string
 	switch valType {
 	case "string":
-		content, _ := client.Get(key).Result()
+
+		content, err := client.Get(key).Result()
+		if err != nil {
+			errorMessage = err.Error()
+		}
 		ttl, _ := client.TTL(key).Result()
 		size, _ := client.StrLen(key).Result()
 		encoding, _ := client.ObjectEncoding(key).Result()
+
 		return &ContentResult{
+			Exists:   true,
 			Content:  content,
 			Ttl:      ttl.String(),
 			Encoding: encoding,
 			Size:     size,
-		}, nil
+			Error:    errorMessage,
+		}
 	}
 
-	return nil, errors.New("unknown type " + valType)
+	return &ContentResult{
+		Exists:   true,
+		Content:  "",
+		Ttl:      "",
+		Encoding: "",
+		Size:     0,
+		Error:    "unknown type " + valType,
+	}
 
 }
 

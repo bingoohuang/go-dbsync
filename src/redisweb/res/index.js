@@ -38,7 +38,7 @@ $(function () {
                 url: pathname + "/showContent",
                 data: {key: key, type: type},
                 success: function (result, textStatus, request) {
-                    showContent(key, type, result.Content, result.Ttl, result.Size, result.Encoding)
+                    showContent(key, type, result.Content, result.Ttl, result.Size, result.Encoding, result.Error, result.Exists)
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
@@ -48,8 +48,19 @@ $(function () {
         })
     }
 
-    function showContent(key, type, content, ttl, size, encoding) {
-        contentHtml = '<h1>' + key + '</h1>'
+    function showContent(key, type, content, ttl, size, encoding, error, exists) {
+        if (error != "") {
+            contentHtml = '<div><span class="error">' + error + '</span></div>'
+            $('#frame').html(contentHtml)
+        }
+
+        if (!exists) {
+            contentHtml = '<div><span class="key">' + key + ' does not exits</span></div>'
+            $('#frame').html(contentHtml)
+            return
+        }
+
+        var contentHtml = '<div><span class="key">' + key + '</span><span class="keyDelete sprite sprite-delete"></span></div>'
         contentHtml += '<table>' +
             '<tr><td>Type:</td><td>' + type + '</td></tr>' +
             '<tr><td>TTL:</td><td>' + ttl + '</td></tr>' +
@@ -59,5 +70,27 @@ $(function () {
             '</table>'
 
         $('#frame').html(contentHtml)
+
+        $('.keyDelete').click(function () {
+            if (confirm("Are you sure to delete " + key + "?")) {
+                $.ajax({
+                    type: 'POST',
+                    url: pathname + "/deleteKey",
+                    data: {key: key},
+                    success: function (content, textStatus, request) {
+                        if (content != 'OK') {
+                            alert(content)
+                            return
+                        }
+
+                        contentHtml = '<div><span class="key">' + key + ' does not exits</span></div>'
+                        $('#frame').html(contentHtml)
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
+                    }
+                })
+            }
+        })
     }
 })

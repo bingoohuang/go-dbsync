@@ -11,6 +11,6 @@ func serveShowContent(w http.ResponseWriter, req *http.Request) {
 	key := strings.TrimSpace(req.FormValue("key"))
 	valType := strings.TrimSpace(req.FormValue("type"))
 
-	content, _ := displayContent(key, valType)
+	content := displayContent(key, valType)
 	json.NewEncoder(w).Encode(content)
 }
