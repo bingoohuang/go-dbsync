@@ -10,18 +10,6 @@
     border-right: 1px solid #000;
 }
 
-#sidebar a, #sidebar a:visited {
-    color: #000;
-}
-
-#sidebar a {
-    text-decoration: none;
-}
-
-#sidebar a:hover {
-    text-decoration: underline;
-}
-
 #keys {
     width: 290px;
     padding-left: 10px;
@@ -34,62 +22,40 @@
     padding: 0;
 }
 
-#keys li {
-    font-weight: normal;
-}
 
-#keys li.folder {
-    font-weight: bold;
-    margin-top: .05em;
-    cursor: pointer;
-}
-
-#keys li.current a {
-    background-color: #eee;
-}
-
-#keys li.hidden {
-    display: none;
-}
-
-#keys .icon {
-    padding: 1px 0 1px 20px;
-    /*background: url(folder-open.png) left center no-repeat;*/
-    white-space: nowrap;
-}
-
-#keys li.collapsed ul {
-    display: none;
-}
-
-#keys ul ul {
+#keys ul {
     margin-left: 6px;
     /*background: url(tree-vline.gif) repeat-y;*/
 }
 
-#keys ul ul li {
+#keys ul li:hover {
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+#keys ul li {
     padding-left: 16px;
     /*background: url(tree-node.gif) no-repeat;*/
 }
 
-#keys ul ul li.folder {
+#keys ul li.folder {
     /*background-image: url(tree-folder-expanded.gif);*/
 }
 
-#keys ul ul li.folder.collapsed {
+#keys ul li.folder.collapsed {
     /*background-image: url(tree-folder-collapsed.gif);*/
 }
 
-#keys ul ul li.last { /* Hard-coded substitute for :last-child */
-    margin-bottom: .3em;
+#keys ul li.last { /* Hard-coded substitute for :last-child */
+    margin-bottom: 20px;
     /*background: #fff url(tree-lastnode.gif) no-repeat;*/
 }
 
-#keys ul ul li.last.folder {
+#keys ul li.last.folder {
     /*background-image: url(tree-lastnode-expanded.gif);*/
 }
 
-#keys ul ul li.last.folder.collapsed {
+#keys ul li.last.folder.collapsed {
     /*background-image: url(tree-lastnode-collapsed.gif);*/
 }
 

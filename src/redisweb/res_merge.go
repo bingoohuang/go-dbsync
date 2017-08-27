@@ -4,6 +4,8 @@ import "bytes"
 
 func mergeCss() string {
 	var scripts bytes.Buffer
+	scripts.Write(MustAsset("res/stylesheet.css"))
+	scripts.Write([]byte("\n"))
 	scripts.Write(MustAsset("res/index.css"))
 	return scripts.String()
 }

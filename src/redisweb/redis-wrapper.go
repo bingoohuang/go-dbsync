@@ -1,6 +1,9 @@
 package main
 
-import "github.com/go-redis/redis"
+import (
+	"github.com/go-redis/redis"
+	"time"
+)
 
 func newRedisClient() *redis.Client {
 	return redis.NewClient(&redis.Options{
@@ -8,6 +11,22 @@ func newRedisClient() *redis.Client {
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
+}
+
+func ttlContent(key string) (time.Duration, error) {
+	client := newRedisClient()
+	defer client.Close()
+
+	ttl, err := client.TTL(key).Result()
+	return ttl, err
+}
+
+func displayContent(key string, valType string) (string, error) {
+	client := newRedisClient()
+	defer client.Close()
+
+	content, err := client.Get(key).Result()
+	return content, err
 }
 
 type KeysResult struct {
