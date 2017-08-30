@@ -118,3 +118,11 @@ table td {
     word-wrap: break-word;
     max-width: 1000px;
 }
+
+textarea {
+    min-width: 500px;
+}
+
+.CodeMirror {
+    min-width: 500px;
+}

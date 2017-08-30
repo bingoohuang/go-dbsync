@@ -3,6 +3,7 @@ package myutil
 import (
 	"encoding/json"
 	"unicode"
+	"bytes"
 )
 
 func IsJSON(s string) bool {
@@ -17,4 +18,13 @@ func IsPrintable(s string) bool {
 		}
 	}
 	return true
+}
+
+func JSONPrettyPrint(in string) string {
+	var out bytes.Buffer
+	err := json.Indent(&out, []byte(in), "", "\t")
+	if err != nil {
+		return in
+	}
+	return out.String()
 }

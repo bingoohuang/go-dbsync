@@ -93,7 +93,7 @@ func parseFormat(s string) (string, string) {
 	}
 
 	if myutil.IsJSON(s) {
-		return s, "JSON"
+		return myutil.JSONPrettyPrint(s), "JSON"
 	}
 
 	if myutil.IsPrintable(s) {

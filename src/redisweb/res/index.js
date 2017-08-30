@@ -38,7 +38,7 @@ $(function () {
                 url: pathname + "/showContent",
                 data: {key: key, type: type},
                 success: function (result, textStatus, request) {
-                    showContent(key, type, result.Content, result.Ttl, result.Size, result.Encoding, result.Error, result.Exists)
+                    showContent(key, type, result.Content, result.Ttl, result.Size, result.Encoding, result.Error, result.Exists, result.Format)
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
@@ -48,7 +48,9 @@ $(function () {
         })
     }
 
-    function showContent(key, type, content, ttl, size, encoding, error, exists) {
+    var codeMirror = null
+
+    function showContent(key, type, content, ttl, size, encoding, error, exists, format) {
         if (error != "") {
             contentHtml = '<div><span class="error">' + error + '</span></div>'
             $('#frame').html(contentHtml)
@@ -66,10 +68,22 @@ $(function () {
             '<tr><td>TTL:</td><td>' + ttl + '</td></tr>' +
             '<tr><td>Encoding:</td><td>' + encoding + '</td></tr>' +
             '<tr><td>Size:</td><td>' + size + '</td></tr>' +
-            '<tr><td>Value:</td><td>' + content + '</td></tr>' +
+            '<tr><td colspan="2">Value:</td></tr>' +
+            '<tr><td colspan="2"><textarea id="code">' + content + '</textarea></td></tr>' +
             '</table>'
 
         $('#frame').html(contentHtml)
+
+        codeMirror = null
+        if (format === "JSON") {
+            codeMirror = CodeMirror.fromTextArea(document.getElementById('code'), {
+                mode: 'application/json',
+                lineNumbers: true,
+                matchBrackets: true
+            })
+        } else {
+            autosize($('#code'));
+        }
 
         $('.keyDelete').click(function () {
             if (confirm("Are you sure to delete " + key + "?")) {
