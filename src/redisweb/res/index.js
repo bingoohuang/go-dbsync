@@ -62,13 +62,14 @@ $(function () {
             return
         }
 
-        var contentHtml = '<div><span class="key">' + key + '</span><span class="keyDelete sprite sprite-delete"></span></div>'
+        var contentHtml = '<div><span class="key">' + key + '</span></div>'
         contentHtml += '<table>' +
             '<tr><td>Type:</td><td>' + type + '</td></tr>' +
             '<tr><td>TTL:</td><td>' + ttl + '</td></tr>' +
             '<tr><td>Encoding:</td><td>' + encoding + '</td></tr>' +
+            '<tr><td>Format:</td><td>' + format + '</td></tr>' +
             '<tr><td>Size:</td><td>' + size + '</td></tr>' +
-            '<tr><td colspan="2">Value:</td></tr>' +
+            '<tr><td>Value:</td><td><span class="valueSave sprite sprite-save"></span><span class="keyDelete sprite sprite-delete"></span></td></tr>' +
             '<tr><td colspan="2"><textarea id="code">' + content + '</textarea></td></tr>' +
             '</table>'
 
@@ -106,14 +107,31 @@ $(function () {
                 })
             }
         })
+
+        $('.valueSave').click(function () {
+            if (confirm("Are you sure to save changes for " + key + "?")) {
+                var changedContent = codeMirror != null && codeMirror.getValue() || $('#code').val()
+                $.ajax({
+                    type: 'POST',
+                    url: pathname + "/changeContent",
+                    data: {key: key, changedContent: changedContent, format: format},
+                    success: function (content, textStatus, request) {
+                        alert(content)
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
+                    }
+                })
+            }
+        })
     }
 
 
     var isResizing = false;
-    var lastDownX  = 0;
-    var lastWidth  = 0;
+    var lastDownX = 0;
+    var lastWidth = 0;
 
-    var resizeSidebar = function(w) {
+    var resizeSidebar = function (w) {
         $('#sidebar').css('width', w);
         $('#keys').css('width', w);
         $('#resize').css('left', w + 10);
@@ -127,8 +145,8 @@ $(function () {
 
     $('#resize').on('mousedown', function (e) {
         isResizing = true;
-        lastDownX  = e.clientX;
-        lastWidth  = $('#sidebar').width();
+        lastDownX = e.clientX;
+        lastWidth = $('#sidebar').width();
         $('#resize-layover').css('z-index', 1000);
         e.preventDefault();
     });
@@ -138,7 +156,7 @@ $(function () {
         }
 
         var w = lastWidth - (lastDownX - e.clientX);
-        if (w < 250 ) {
+        if (w < 250) {
             w = 250;
         } else if (w > 1000) {
             w = 1000;

@@ -1,6 +1,5 @@
 .sprite {
-    background-image: url(spritesheet.png);
-    background-repeat: no-repeat;
+    background: url(spritesheet.png) no-repeat;
     display: block;
 }
 

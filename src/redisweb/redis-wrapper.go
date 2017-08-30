@@ -14,6 +14,22 @@ func newRedisClient() *redis.Client {
 	})
 }
 
+func changeContent(key, content, format string) string {
+	client := newRedisClient()
+	defer client.Close()
+
+	if format == "UNKNOWN" {
+		content, _ = strconv.Unquote(content)
+	}
+
+	err := client.Set(key, content, 0).Err()
+	if err == nil {
+		return "OK"
+	}
+
+	return err.Error()
+}
+
 func deleteKey(key string) string {
 	client := newRedisClient()
 	defer client.Close()

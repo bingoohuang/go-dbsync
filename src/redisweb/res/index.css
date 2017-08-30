@@ -105,6 +105,11 @@
     display: inline-block;
 }
 
+span.sprite {
+    display: inline-block;
+    margin-right: 20px;
+}
+
 .keyDelete {
     display: inline-block;
 }

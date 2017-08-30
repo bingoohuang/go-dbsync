@@ -34,6 +34,7 @@ func main() {
 	http.HandleFunc(contextPath+"/spritesheet.png", serveImage("spritesheet.png"))
 	http.HandleFunc(contextPath+"/listKeys", serveListKeys)
 	http.HandleFunc(contextPath+"/showContent", serveShowContent)
+	http.HandleFunc(contextPath+"/changeContent", serveChangeContent)
 	http.HandleFunc(contextPath+"/deleteKey", serveDeleteKey)
 
 	sport := strconv.Itoa(port)
