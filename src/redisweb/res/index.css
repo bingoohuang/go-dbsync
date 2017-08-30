@@ -34,6 +34,7 @@
 
 #keys ul li {
     padding-left: 16px;
+    white-space: nowrap;
     /*background: url(tree-node.gif) no-repeat;*/
 }
 
@@ -113,5 +114,6 @@ table {
 
 table td {
     border: 1px solid #eeeeee;
-    white-space: nowrap;
+    word-wrap: break-word;
+    max-width: 500px;
 }

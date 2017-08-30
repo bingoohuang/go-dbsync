@@ -93,9 +93,12 @@ func listKeys(matchPattern string, maxKeys int) ([]KeysResult, error) {
 	defer client.Close()
 
 	allKeys := make([]KeysResult, 0)
+	var keys []string
 	var cursor uint64
+	var err error
+
 	for {
-		keys, cursor, err := client.Scan(cursor, matchPattern, 10).Result()
+		keys, cursor, err = client.Scan(cursor, matchPattern, 10).Result()
 		if err != nil {
 			return nil, err
 		}
