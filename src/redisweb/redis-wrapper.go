@@ -1,7 +1,9 @@
 package main
 
 import (
+	"../myutil"
 	"github.com/go-redis/redis"
+	"strconv"
 )
 
 func newRedisClient() *redis.Client {
@@ -31,6 +33,7 @@ type ContentResult struct {
 	Encoding string
 	Size     int64
 	Error    string
+	Format   string // JSON, NORMAL, UNKNOWN
 }
 
 func displayContent(key string, valType string) *ContentResult {
@@ -60,6 +63,7 @@ func displayContent(key string, valType string) *ContentResult {
 		ttl, _ := client.TTL(key).Result()
 		size, _ := client.StrLen(key).Result()
 		encoding, _ := client.ObjectEncoding(key).Result()
+		content, format := parseFormat(content)
 
 		return &ContentResult{
 			Exists:   true,
@@ -68,6 +72,7 @@ func displayContent(key string, valType string) *ContentResult {
 			Encoding: encoding,
 			Size:     size,
 			Error:    errorMessage,
+			Format:   format,
 		}
 	}
 
@@ -78,8 +83,24 @@ func displayContent(key string, valType string) *ContentResult {
 		Encoding: "",
 		Size:     0,
 		Error:    "unknown type " + valType,
+		Format:   "UNKNOWN",
 	}
 
+}
+func parseFormat(s string) (string, string) {
+	if s == "" {
+		return s, "UNKNOWN"
+	}
+
+	if myutil.IsJSON(s) {
+		return s, "JSON"
+	}
+
+	if myutil.IsPrintable(s) {
+		return s, "NORMAL"
+	}
+
+	return strconv.Quote(s), "UNKNOWN"
 }
 
 type KeysResult struct {
