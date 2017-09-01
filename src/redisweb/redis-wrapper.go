@@ -7,10 +7,11 @@ import (
 )
 
 func newRedisClient() *redis.Client {
+	server := servers[0]
 	return redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
+		Addr:     server.Addr,
+		Password: server.Password, // no password set
+		DB:       server.DB,       // use default DB
 	})
 }
 
