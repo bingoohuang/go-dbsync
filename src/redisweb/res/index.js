@@ -48,6 +48,18 @@ $(function () {
         })
     }
 
+    $('.filterKeys').keyup(function () {
+        var filter = $.trim($(this).val()).toUpperCase()
+
+        $('#keys ul li').each(function (index, li) {
+            var $li = $(li)
+            var text = $.trim($li.text()).toUpperCase()
+            var contains = text.indexOf(filter) > -1
+            $li.toggle(contains)
+        })
+    })
+
+
     var codeMirror = null
 
     function showContent(key, type, content, ttl, size, encoding, error, exists, format) {
