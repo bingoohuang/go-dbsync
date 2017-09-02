@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 func serveListKeys(w http.ResponseWriter, req *http.Request) {

@@ -20,6 +20,10 @@
     height: 100%;
 }
 
+#key,#ttl {
+    width: 95%;
+}
+
 #keys {
     width: 290px;
     overflow: auto;

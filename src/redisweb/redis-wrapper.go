@@ -4,6 +4,7 @@ import (
 	"../myutil"
 	"github.com/go-redis/redis"
 	"strconv"
+	"time"
 )
 
 func newRedisClient(server RedisServer) *redis.Client {
@@ -37,6 +38,40 @@ func changeContent(server RedisServer, key, content, format string) string {
 	}
 
 	return err.Error()
+}
+
+func newKey(server RedisServer, keyType, key, ttl, format, val string) string {
+	client := newRedisClient(server)
+	defer client.Close()
+
+	var err error
+	if format == "Quoted" {
+		val, err = strconv.Unquote(val)
+		if err != nil {
+			return err.Error()
+		}
+	}
+
+	var duration time.Duration = -1
+	if ttl != "-1s" && ttl != "" {
+		duration, err = time.ParseDuration(ttl)
+		if err != nil {
+			return err.Error()
+		}
+	}
+
+	switch keyType {
+	case "string":
+		_, err = client.Set(key, val, duration).Result()
+
+	}
+
+	if err != nil {
+		return err.Error()
+	}
+
+	return "OK"
+
 }
 
 func deleteKey(server RedisServer, key string) string {

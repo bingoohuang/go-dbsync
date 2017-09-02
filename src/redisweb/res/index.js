@@ -50,7 +50,6 @@ $(function () {
                     alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
                 }
             })
-
         })
     }
 
@@ -67,6 +66,89 @@ $(function () {
 
 
     $('#servers,#databases').change(refreshKeys)
+
+    function showContentAjax(key, type) {
+        $.ajax({
+            type: 'GET',
+            url: pathname + "/showContent",
+            data: {server: $('#servers').val(), database: $('#databases').val(), key: key, type: type},
+            success: function (result, textStatus, request) {
+                showContent(key, type, result.Content, result.Ttl, result.Size, result.Encoding, result.Error, result.Exists, result.Format)
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
+            }
+        })
+    }
+
+    $('#addKey').click(function() {
+        var contentHtml = '<div><span class="key">Add another key</span></div>'
+        contentHtml += '<table>' +
+            '<tr><td>Type:</td><td><select name="type" id="type">' +
+            '<option value="string">String</option>' +
+            '<option value="hash">Hash</option>' +
+            '<option value="list">List</option>' +
+            '<option value="set">Set</option>' +
+            '<option value="zset">ZSet</option>' +
+            '</select></td></tr>' +
+            '<tr><td>Key:</td><td><input id="key" placeholder="input the new key"></td></tr>' +
+            '<tr><td>TTL:</td><td><input id="ttl" placeholder="input the expired time, like 1d/1h/10s/-1s"></td></tr>' +
+            '<tr><td>Format:</td><td><select name="format" id="format">' +
+            '<option value="String">String</option>' +
+            '<option value="JSON">JSON</option>' +
+            '<option value="Quoted">Quoted</option>' +
+            '</select></td></tr>' +
+            '<tr><td>Value:</td><td><span class="valueSave sprite sprite-save"></span></td></tr>' +
+            '<tr><td colspan="2"><textarea id="code"></textarea></td></tr>' +
+            '</table>'
+
+        $('#frame').html(contentHtml)
+
+        $('#format').change(function () {
+            codeMirror = null
+            if ($(this).val() == 'JSON') {
+                codeMirror = CodeMirror.fromTextArea(document.getElementById('code'), {
+                    mode: 'application/json',
+                    lineNumbers: true,
+                    matchBrackets: true
+                })
+            }
+        })
+
+        $('.valueSave').click(function () {
+            var type = $('#type').val()
+            var key = $('#key').val()
+            var ttl = $('#ttl').val()
+            var format = $('#format').val()
+            var value = codeMirror != null && codeMirror.getValue() || $('#code').val()
+
+            if (confirm("Are you sure to save save for " + key + "?")) {
+                $.ajax({
+                    type: 'POST',
+                    url: pathname + "/newKey",
+                    data: {
+                        server: $('#servers').val(),
+                        database: $('#databases').val(),
+                        type: type,
+                        key: key,
+                        ttl: ttl,
+                        format: format,
+                        value: value
+                    },
+                    success: function (content, textStatus, request) {
+                        alert(content)
+                        if (content == 'OK') {
+                            refreshKeys()
+                            showContentAjax(key, type)
+                        }
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
+                    }
+                })
+            }
+        })
+    })
 
     var codeMirror = null
 
@@ -134,9 +216,18 @@ $(function () {
                 $.ajax({
                     type: 'POST',
                     url: pathname + "/changeContent",
-                    data: {server: $('#servers').val(), database: $('#databases').val(), key: key, changedContent: changedContent, format: format},
+                    data: {
+                        server: $('#servers').val(),
+                        database: $('#databases').val(),
+                        key: key,
+                        changedContent: changedContent,
+                        format: format
+                    },
                     success: function (content, textStatus, request) {
                         alert(content)
+                        if (content == 'OK') {
+                            showContentAjax(key, type)
+                        }
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)

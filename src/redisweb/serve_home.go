@@ -3,8 +3,8 @@ package main
 import (
 	"../myutil"
 	"net/http"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
