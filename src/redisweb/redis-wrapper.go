@@ -15,6 +15,14 @@ func newRedisClient(server RedisServer) *redis.Client {
 	})
 }
 
+func redisInfo(server RedisServer) string {
+	client := newRedisClient(server)
+	defer client.Close()
+
+	info, _ := client.Info().Result()
+	return info
+}
+
 func configGetDatabases(server RedisServer) int {
 	client := newRedisClient(server)
 	defer client.Close()

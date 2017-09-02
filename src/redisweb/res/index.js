@@ -27,6 +27,23 @@ $(function () {
         refreshKeys()
     })
 
+    $('#redisInfo').click(function () {
+        $.ajax({
+            type: 'GET',
+            url: pathname + "/redisInfo",
+            data: {server: $('#servers').val(), database: $('#databases').val()},
+            success: function (result, textStatus, request) {
+                var contentHtml = '<div><span class="key">Redis info</span></div>' +
+                    '<pre>' + result + '</pre>'
+
+                $('#frame').html(contentHtml)
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
+            }
+        })
+    })
+
     function showKeysTree(keysArray) {
         $('#keysNum').html('(' + keysArray.length + ')')
         var keysHtml = '<ul>'
@@ -257,46 +274,4 @@ $(function () {
         })
     }
 
-
-    var isResizing = false;
-    var lastDownX = 0;
-    var lastWidth = 0;
-
-    var resizeSidebar = function (w) {
-        $('#sidebar').css('width', w);
-        $('#keys').css('width', w);
-        $('#resize').css('left', w + 10);
-        $('#resize-layover').css('left', w + 15);
-        $('#frame').css('left', w + 15);
-    };
-
-    if (parseInt(Cookies.get('sidebar')) > 0) {
-        resizeSidebar(parseInt(Cookies.get('sidebar')));
-    }
-
-    $('#resize').on('mousedown', function (e) {
-        isResizing = true;
-        lastDownX = e.clientX;
-        lastWidth = $('#sidebar').width();
-        $('#resize-layover').css('z-index', 1000);
-        e.preventDefault();
-    });
-    $(document).on('mousemove', function (e) {
-        if (!isResizing) {
-            return;
-        }
-
-        var w = lastWidth - (lastDownX - e.clientX);
-        if (w < 250) {
-            w = 250;
-        } else if (w > 1000) {
-            w = 1000;
-        }
-
-        resizeSidebar(w);
-        Cookies.set('sidebar', w);
-    }).on('mouseup', function (e) {
-        isResizing = false;
-        $('#resize-layover').css('z-index', 0);
-    });
 })

@@ -27,5 +27,7 @@ func mergeScripts() string {
 	scripts.Write(MustAsset("res/js.cookie.js"))
 	scripts.Write([]byte("\n"))
 	scripts.Write(MustAsset("res/index.js"))
+	scripts.Write([]byte("\n"))
+	scripts.Write(MustAsset("res/resizebar.js"))
 	return scripts.String()
 }
