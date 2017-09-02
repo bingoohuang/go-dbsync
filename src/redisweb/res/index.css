@@ -37,6 +37,11 @@ p {
     overflow: auto;
 }
 
+.chosen {
+    color: blue;
+}
+
+
 #keys ul {
     list-style-type: none;
     margin: 0;

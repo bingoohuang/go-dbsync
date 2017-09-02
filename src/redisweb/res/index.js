@@ -4,13 +4,16 @@ $(function () {
         pathname = pathname.substring(0, pathname.length - 1)
     }
 
-    function refreshKeys() {
+    function refreshKeys(key) {
         $.ajax({
             type: 'GET',
             url: pathname + "/listKeys",
             data: {server: $('#servers').val(), database: $('#databases').val(), pattern: $('#serverFilterKeys').val()},
             success: function (content, textStatus, request) {
                 showKeysTree(content)
+                if (key) {
+                    chosenKey(key)
+                }
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
@@ -40,7 +43,9 @@ $(function () {
         $('#keys').html(keysHtml)
 
         $('#keys ul li').click(function () {
+            $('#keys ul li').removeClass('chosen')
             var $this = $(this)
+            $this.addClass('chosen')
             var key = $this.text()
             var type = $this.attr('data-type')
             $.ajax({
@@ -67,6 +72,16 @@ $(function () {
             $li.toggle(contains)
         })
     })
+
+    function chosenKey(key) {
+        $('#keys ul li').removeClass('chosen').each(function (index, li) {
+            var $li = $(li)
+            if ($li.text() == key) {
+                $li.addClass('chosen')
+                return false
+            }
+        })
+    }
 
 
     $('#servers,#databases').change(refreshKeys)
@@ -140,10 +155,11 @@ $(function () {
                         value: value
                     },
                     success: function (content, textStatus, request) {
-                        alert(content)
                         if (content == 'OK') {
-                            refreshKeys()
+                            refreshKeys(key)
                             showContentAjax(key, type)
+                        } else {
+                            alert(content)
                         }
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
