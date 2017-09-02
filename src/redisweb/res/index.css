@@ -3,7 +3,11 @@
 }
 
 .filterKeys {
-    width: 260px;
+    width: 200px;
+}
+
+#serverFilterKeys {
+    width: 200px;
 }
 
 #keysLabel {
@@ -20,7 +24,11 @@
     height: 100%;
 }
 
-#key,#ttl {
+p {
+    margin: 2px;
+}
+
+#key, #ttl {
     width: 95%;
 }
 

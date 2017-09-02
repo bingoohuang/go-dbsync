@@ -18,11 +18,12 @@
         db:<select id="databases">
         <databaseOptions/>
     </select>
-        <p>
-            <input class="filterKeys" placeholder="Type to filter keys">
+        <p><input id="serverFilterKeys" placeholder="filter keys from server" value="*">
+            <button id="serverFilterKeysBtn">Filter!</button>
+        <p><input class="filterKeys" placeholder="Type to filter keys">
     </div>
     <div>
-        <span class="sprite sprite-folder-open"></span>
+        <span class="sprite sprite-folder-open"></span
         <span id="keysLabel">Keys</span>
         <span class="info" id="keysNum">(0)</span>
         <span id="addKey" class="sprite sprite-add"></span></div>

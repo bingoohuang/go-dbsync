@@ -8,7 +8,7 @@ $(function () {
         $.ajax({
             type: 'GET',
             url: pathname + "/listKeys",
-            data: {server: $('#servers').val(), database: $('#databases').val()},
+            data: {server: $('#servers').val(), database: $('#databases').val(), pattern: $('#serverFilterKeys').val()},
             success: function (content, textStatus, request) {
                 showKeysTree(content)
             },
@@ -19,6 +19,10 @@ $(function () {
     }
 
     refreshKeys();
+
+    $('#serverFilterKeysBtn').click(function () {
+        refreshKeys()
+    })
 
     function showKeysTree(keysArray) {
         $('#keysNum').html('(' + keysArray.length + ')')
@@ -81,7 +85,7 @@ $(function () {
         })
     }
 
-    $('#addKey').click(function() {
+    $('#addKey').click(function () {
         var contentHtml = '<div><span class="key">Add another key</span></div>'
         contentHtml += '<table>' +
             '<tr><td>Type:</td><td><select name="type" id="type">' +
