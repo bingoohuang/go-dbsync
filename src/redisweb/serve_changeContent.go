@@ -10,7 +10,8 @@ func serveChangeContent(w http.ResponseWriter, req *http.Request) {
 	key := strings.TrimSpace(req.FormValue("key"))
 	changedContent := strings.TrimSpace(req.FormValue("changedContent"))
 	format := strings.TrimSpace(req.FormValue("format"))
+	server := findRedisServer(req)
 
-	ok := changeContent(key, changedContent, format)
+	ok := changeContent(server, key, changedContent, format)
 	w.Write([]byte(ok))
 }

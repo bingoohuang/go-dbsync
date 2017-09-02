@@ -1,12 +1,17 @@
-.operationArea  {
+.operationArea {
     margin-bottom: 10px;
 }
 
 .filterKeys {
-    width: 300px;
+    width: 260px;
+}
+
+#keysLabel {
+    margin-left: -20px;
 }
 
 #sidebar {
+    margin-left: 10px;
     position: absolute;
     top: 0;
     bottom: 0;
@@ -136,4 +141,9 @@ textarea {
 .CodeMirror {
     min-width: 500px;
     height: auto;
+}
+
+.info {
+    color: #aaa;
+    font-weight: normal;
 }

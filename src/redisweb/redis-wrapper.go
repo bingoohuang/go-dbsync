@@ -6,8 +6,7 @@ import (
 	"strconv"
 )
 
-func newRedisClient() *redis.Client {
-	server := servers[0]
+func newRedisClient(server RedisServer) *redis.Client {
 	return redis.NewClient(&redis.Options{
 		Addr:     server.Addr,
 		Password: server.Password, // no password set
@@ -15,8 +14,17 @@ func newRedisClient() *redis.Client {
 	})
 }
 
-func changeContent(key, content, format string) string {
-	client := newRedisClient()
+func configGetDatabases(server RedisServer) int {
+	client := newRedisClient(server)
+	defer client.Close()
+
+	config, _ := client.ConfigGet("databases").Result()
+	databaseNum, _ := strconv.Atoi(config[1].(string))
+	return databaseNum
+}
+
+func changeContent(server RedisServer, key, content, format string) string {
+	client := newRedisClient(server)
 	defer client.Close()
 
 	if format == "UNKNOWN" {
@@ -31,8 +39,8 @@ func changeContent(key, content, format string) string {
 	return err.Error()
 }
 
-func deleteKey(key string) string {
-	client := newRedisClient()
+func deleteKey(server RedisServer, key string) string {
+	client := newRedisClient(server)
 	defer client.Close()
 
 	ok, err := client.Del(key).Result()
@@ -53,8 +61,8 @@ type ContentResult struct {
 	Format   string // JSON, NORMAL, UNKNOWN
 }
 
-func displayContent(key string, valType string) *ContentResult {
-	client := newRedisClient()
+func displayContent(server RedisServer, key string, valType string) *ContentResult {
+	client := newRedisClient(server)
 	defer client.Close()
 
 	exists, _ := client.Exists(key).Result()
@@ -126,8 +134,8 @@ type KeysResult struct {
 	Len  int64
 }
 
-func listKeys(matchPattern string, maxKeys int) ([]KeysResult, error) {
-	client := newRedisClient()
+func listKeys(server RedisServer, matchPattern string, maxKeys int) ([]KeysResult, error) {
+	client := newRedisClient(server)
 	defer client.Close()
 
 	allKeys := make([]KeysResult, 0)

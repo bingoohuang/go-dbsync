@@ -4,18 +4,24 @@ $(function () {
         pathname = pathname.substring(0, pathname.length - 1)
     }
 
-    $.ajax({
-        type: 'GET',
-        url: pathname + "/listKeys",
-        success: function (content, textStatus, request) {
-            showKeysTree(content)
-        },
-        error: function (jqXHR, textStatus, errorThrown) {
-            alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
-        }
-    })
+    function refreshKeys() {
+        $.ajax({
+            type: 'GET',
+            url: pathname + "/listKeys",
+            data: {server: $('#servers').val(), database: $('#databases').val()},
+            success: function (content, textStatus, request) {
+                showKeysTree(content)
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
+            }
+        })
+    }
+
+    refreshKeys();
 
     function showKeysTree(keysArray) {
+        $('#keysNum').html('(' + keysArray.length + ')')
         var keysHtml = '<ul>'
         for (var i = 0; i < keysArray.length; ++i) {
             var key = keysArray[i]
@@ -36,7 +42,7 @@ $(function () {
             $.ajax({
                 type: 'GET',
                 url: pathname + "/showContent",
-                data: {key: key, type: type},
+                data: {server: $('#servers').val(), database: $('#databases').val(), key: key, type: type},
                 success: function (result, textStatus, request) {
                     showContent(key, type, result.Content, result.Ttl, result.Size, result.Encoding, result.Error, result.Exists, result.Format)
                 },
@@ -59,6 +65,8 @@ $(function () {
         })
     })
 
+
+    $('#servers,#databases').change(refreshKeys)
 
     var codeMirror = null
 
@@ -103,7 +111,7 @@ $(function () {
                 $.ajax({
                     type: 'POST',
                     url: pathname + "/deleteKey",
-                    data: {key: key},
+                    data: {server: $('#servers').val(), database: $('#databases').val(), key: key},
                     success: function (content, textStatus, request) {
                         if (content != 'OK') {
                             alert(content)
@@ -126,7 +134,7 @@ $(function () {
                 $.ajax({
                     type: 'POST',
                     url: pathname + "/changeContent",
-                    data: {key: key, changedContent: changedContent, format: format},
+                    data: {server: $('#servers').val(), database: $('#databases').val(), key: key, changedContent: changedContent, format: format},
                     success: function (content, textStatus, request) {
                         alert(content)
                     },
