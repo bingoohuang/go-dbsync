@@ -99,6 +99,7 @@ func main() {
 	http.HandleFunc(contextPath+"/deleteKey", serveDeleteKey)
 	http.HandleFunc(contextPath+"/newKey", serveNewKey)
 	http.HandleFunc(contextPath+"/redisInfo", serveRedisInfo)
+	http.HandleFunc(contextPath+"/redisCli", serveRedisCli)
 
 	sport := strconv.Itoa(port)
 	fmt.Println("start to listen at ", sport)

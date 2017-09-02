@@ -2,8 +2,21 @@ package main
 
 import (
 	"net/http"
+	"strings"
 )
 
+func serveRedisCli(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	server := findRedisServer(req)
+	cmd := strings.TrimSpace(req.FormValue("cmd"))
+
+	result, err := redisCli(server, cmd)
+	if err != nil {
+		w.Write([]byte(err.Error()))
+	} else {
+		w.Write([]byte(result))
+	}
+}
 func serveRedisInfo(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	server := findRedisServer(req)

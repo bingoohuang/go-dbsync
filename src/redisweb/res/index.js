@@ -26,6 +26,23 @@ $(function () {
     $('#serverFilterKeysBtn').click(function () {
         refreshKeys()
     })
+    $('#directCmdBtn').click(function () {
+        var cmd = $('#directCmd').val()
+        $.ajax({
+            type: 'GET',
+            url: pathname + "/redisCli",
+            data: {server: $('#servers').val(), database: $('#databases').val(), cmd: cmd},
+            success: function (result, textStatus, request) {
+                var contentHtml = '<div>' + cmd + '</div>' +
+                    '<pre>' + result + '</pre>'
+
+                $('#frame').html(contentHtml)
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
+            }
+        })
+    })
 
     $('#redisInfo').click(function () {
         $.ajax({
