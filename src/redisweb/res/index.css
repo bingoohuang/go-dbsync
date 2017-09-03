@@ -55,6 +55,7 @@ p {
     color: white;
     width: 90%;
 }
+
 #directCmdResult pre {
     margin: 0;
 }
@@ -67,7 +68,6 @@ p {
 
 #keys ul {
     margin-left: 6px;
-    /*background: url(tree-vline.gif) repeat-y;*/
 }
 
 #keys ul li:hover {
@@ -78,31 +78,17 @@ p {
 #keys ul li {
     padding-left: 16px;
     white-space: nowrap;
-    /*background: url(tree-node.gif) no-repeat;*/
 }
 
-#keys ul li.folder {
-    /*background-image: url(tree-folder-expanded.gif);*/
-}
-
-#keys ul li.folder.collapsed {
-    /*background-image: url(tree-folder-collapsed.gif);*/
+#keys ul li span {
+    margin-right: 5px;
 }
 
 #keys ul li.last { /* Hard-coded substitute for :last-child */
     margin-bottom: 20px;
-    /*background: #fff url(tree-lastnode.gif) no-repeat;*/
 }
 
-#keys ul li.last.folder {
-    /*background-image: url(tree-lastnode-expanded.gif);*/
-}
-
-#keys ul li.last.folder.collapsed {
-    /*background-image: url(tree-lastnode-collapsed.gif);*/
-}
-
-#keys .deltree {
+.deltree {
     display: none;
 }
 

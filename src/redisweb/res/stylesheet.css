@@ -5,122 +5,153 @@
     display: block;
 }
 
+
 .sprite-add {
     width: 16px;
     height: 16px;
     background-position: -5px -5px;
 }
 
-.sprite-delete {
+.sprite-datatype-hash {
     width: 16px;
     height: 16px;
     background-position: -31px -5px;
 }
 
-.sprite-edit {
+.sprite-datatype-list {
     width: 16px;
     height: 16px;
     background-position: -57px -5px;
 }
 
-.sprite-export {
+.sprite-datatype-set {
     width: 16px;
     height: 16px;
     background-position: -83px -5px;
 }
 
-.sprite-flush {
+.sprite-datatype-string {
     width: 16px;
     height: 16px;
     background-position: -5px -31px;
 }
 
-.sprite-folder-open {
+.sprite-datatype-zset {
     width: 16px;
     height: 16px;
     background-position: -31px -31px;
 }
 
-.sprite-import {
+.sprite-delete {
     width: 16px;
     height: 16px;
     background-position: -57px -31px;
 }
 
-.sprite-info {
+.sprite-edit {
     width: 16px;
     height: 16px;
     background-position: -83px -31px;
 }
 
-.sprite-logout {
+.sprite-export {
     width: 16px;
     height: 16px;
     background-position: -5px -57px;
 }
 
-.sprite-refresh {
+.sprite-flush {
     width: 16px;
     height: 16px;
     background-position: -31px -57px;
 }
 
-.sprite-reset {
+.sprite-folder-open {
     width: 16px;
     height: 16px;
     background-position: -57px -57px;
 }
 
-.sprite-save {
+.sprite-import {
     width: 16px;
     height: 16px;
     background-position: -83px -57px;
 }
 
+.sprite-info {
+    width: 16px;
+    height: 16px;
+    background-position: -5px -83px;
+}
+
+.sprite-logout {
+    width: 16px;
+    height: 16px;
+    background-position: -31px -83px;
+}
+
+.sprite-refresh {
+    width: 16px;
+    height: 16px;
+    background-position: -57px -83px;
+}
+
+.sprite-reset {
+    width: 16px;
+    height: 16px;
+    background-position: -83px -83px;
+}
+
+.sprite-save {
+    width: 16px;
+    height: 16px;
+    background-position: -109px -5px;
+}
+
 .sprite-terminal {
     width: 14px;
     height: 16px;
-    background-position: -5px -83px;
+    background-position: -135px -5px;
 }
 
 .sprite-tree-folder-collapsed {
     width: 12px;
     height: 24px;
-    background-position: -29px -83px;
+    background-position: -109px -31px;
 }
 
 .sprite-tree-folder-expanded {
     width: 12px;
     height: 24px;
-    background-position: -51px -83px;
+    background-position: -131px -31px;
 }
 
 .sprite-tree-lastnode {
     width: 12px;
     height: 13px;
-    background-position: -73px -83px;
+    background-position: -109px -65px;
 }
 
 .sprite-tree-lastnode-collapsed {
     width: 12px;
     height: 17px;
-    background-position: -95px -83px;
+    background-position: -131px -65px;
 }
 
 .sprite-tree-lastnode-expanded {
     width: 12px;
     height: 17px;
-    background-position: -109px -5px;
+    background-position: -109px -92px;
 }
 
 .sprite-tree-node {
     width: 12px;
     height: 24px;
-    background-position: -109px -32px;
+    background-position: -131px -92px;
 }
 
 .sprite-tree-vline {
     width: 5px;
     height: 1px;
-    background-position: -109px -66px;
+    background-position: -5px -126px;
 }

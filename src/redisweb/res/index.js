@@ -84,11 +84,9 @@ $(function () {
         var keysHtml = '<ul>'
         for (var i = 0; i < keysArray.length; ++i) {
             var key = keysArray[i]
-            if (i < keysArray.length - 1) {
-                keysHtml += '<li class="' + key.Type + ' sprite sprite-tree-node" data-type="' + key.Type + '">' + key.Key + '</li>'
-            } else {
-                keysHtml += '<li class="' + key.Type + ' sprite sprite-tree-lastnode last" data-type="' + key.Type + '">' + key.Key + '</li>'
-            }
+            var nodeCss = i < keysArray.length - 1 ? "sprite-tree-node" : "sprite-tree-lastnode last"
+            keysHtml += '<li class="datatype-' + key.Type + ' sprite ' + nodeCss + '" data-type="' + key.Type + '">' +
+                '<span class="sprite sprite-datatype-' + key.Type + '"></span><span class="keyValue">' + key.Key + '</span></li>'
         }
         keysHtml += '</ul>'
 
@@ -98,7 +96,7 @@ $(function () {
             $('#keys ul li').removeClass('chosen')
             var $this = $(this)
             $this.addClass('chosen')
-            var key = $this.text()
+            var key = $this.find('.keyValue').text()
             var type = $this.attr('data-type')
             $.ajax({
                 type: 'GET',
@@ -127,9 +125,19 @@ $(function () {
 
     function chosenKey(key) {
         $('#keys ul li').removeClass('chosen').each(function (index, li) {
-            var $li = $(li)
-            if ($li.text() == key) {
-                $li.addClass('chosen')
+            var $span = $(li).find('.keyValue')
+            if ($span.text() == key) {
+                $(li).addClass('chosen')
+                return false
+            }
+        })
+    }
+
+    function removeKey(key) {
+        $('#keys ul li').removeClass('chosen').each(function (index, li) {
+            var $span = $(li).find('.keyValue')
+            if ($span.text() == key) {
+                $(li).remove()
                 return false
             }
         })
@@ -272,6 +280,8 @@ $(function () {
                             return
                         }
 
+                        removeKey(key)
+
                         contentHtml = '<div><span class="key">' + key + ' does not exits</span></div>'
                         $('#frame').html(contentHtml)
                     },
@@ -296,9 +306,10 @@ $(function () {
                         format: format
                     },
                     success: function (content, textStatus, request) {
-                        alert(content)
                         if (content == 'OK') {
                             showContentAjax(key, type)
+                        } else {
+                            alert(content)
                         }
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
