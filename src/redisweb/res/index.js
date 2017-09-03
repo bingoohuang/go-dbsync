@@ -246,14 +246,39 @@ $(function () {
 
         var contentHtml = '<div><span class="key">' + key + '</span></div>'
         contentHtml += '<table>' +
-            '<tr><td>Type:</td><td>' + type + '</td></tr>' +
-            '<tr><td>TTL:</td><td>' + ttl + '</td></tr>' +
-            '<tr><td>Encoding:</td><td>' + encoding + '</td></tr>' +
-            '<tr><td>Format:</td><td>' + format + '</td></tr>' +
-            '<tr><td>Size:</td><td>' + size + '</td></tr>' +
-            '<tr><td>Value:</td><td><span class="valueSave sprite sprite-save"></span><span class="keyDelete sprite sprite-delete"></span></td></tr>' +
-            '<tr><td colspan="2"><textarea id="code">' + content + '</textarea></td></tr>' +
-            '</table>'
+            '<tr><td>Type:</td><td colspan="2">' + type + '</td></tr>' +
+            '<tr><td>TTL:</td><td colspan="2">' + ttl + '</td></tr>' +
+            '<tr><td>Encoding:</td><td colspan="2">' + encoding + '</td></tr>' +
+            '<tr><td>Format:</td><td colspan="2">' + format + '</td></tr>' +
+            '<tr><td>Size:</td><td colspan="2">' + size + '</td></tr>' +
+            '<tr><td>Value:</td><td colspan="2"><span class="valueSave sprite sprite-save"></span><span class="keyDelete sprite sprite-delete"></span></td></tr>'
+
+        switch (type) {
+            case "string":
+                contentHtml += '<tr><td colspan="3"><textarea id="code">' + content + '</textarea></td></tr>'
+                break
+            case "hash":
+                contentHtml += '<tr><td>Field</td><td colspan="2">Value</td></tr>'
+                for (var key in content) {
+                    contentHtml += '<tr><td contenteditable="true">' + key + '</td><td colspan="2" contenteditable="true">' + content[key] + '</td></tr>'
+                }
+                break
+            case "set":
+            case "list":
+                contentHtml += '<tr><td>#</td><td colspan="2">Value</td></tr>'
+                for (var i = 0; i < content.length; ++i) {
+                    contentHtml += '<tr><td contenteditable="true">' + i + '</td><td colspan="2" contenteditable="true">' + content[i] + '</td></tr>'
+                }
+                break
+            case "zset":
+                contentHtml += '<tr><td>#</td><td>Score</td><td>Value</td></tr>'
+                for (var i = 0; i < content.length; ++i) {
+                    contentHtml += '<tr><td contenteditable="true">' + i + '</td><td contenteditable="true">' + content[i].Score + '</td><td>' + content[i].Member + '</td></tr>'
+                }
+                break
+
+        }
+        contentHtml += '</table>'
 
         $('#frame').html(contentHtml)
 

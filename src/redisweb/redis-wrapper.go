@@ -96,7 +96,7 @@ func deleteKey(server RedisServer, key string) string {
 
 type ContentResult struct {
 	Exists   bool
-	Content  string
+	Content  interface{}
 	Ttl      string
 	Encoding string
 	Size     int64
@@ -121,39 +121,45 @@ func displayContent(server RedisServer, key string, valType string) *ContentResu
 	}
 
 	var errorMessage string
+	ttl, _ := client.TTL(key).Result()
+	size, _ := client.StrLen(key).Result()
+	encoding, _ := client.ObjectEncoding(key).Result()
+	var content interface{}
+	var format string
+	var err error
+
 	switch valType {
 	case "string":
-
-		content, err := client.Get(key).Result()
-		if err != nil {
-			errorMessage = err.Error()
+		content, err = client.Get(key).Result()
+		if err == nil {
+			content, format = parseFormat(content.(string))
 		}
-		ttl, _ := client.TTL(key).Result()
-		size, _ := client.StrLen(key).Result()
-		encoding, _ := client.ObjectEncoding(key).Result()
-		content, format := parseFormat(content)
 
-		return &ContentResult{
-			Exists:   true,
-			Content:  content,
-			Ttl:      ttl.String(),
-			Encoding: encoding,
-			Size:     size,
-			Error:    errorMessage,
-			Format:   format,
-		}
+	case "hash":
+		content, err = client.HGetAll(key).Result()
+	case "list":
+		content, err = client.LRange(key, 0, -1).Result()
+	case "set":
+		content, err = client.SMembers(key).Result()
+	case "zset":
+		content, err = client.ZRangeWithScores(key, 0, -1).Result()
+	default:
+		content = "unknown type " + valType
+	}
+
+	if err != nil {
+		errorMessage = err.Error()
 	}
 
 	return &ContentResult{
 		Exists:   true,
-		Content:  "",
-		Ttl:      "",
-		Encoding: "",
-		Size:     0,
-		Error:    "unknown type " + valType,
-		Format:   "UNKNOWN",
+		Content:  content,
+		Ttl:      ttl.String(),
+		Encoding: encoding,
+		Size:     size,
+		Error:    errorMessage,
+		Format:   format,
 	}
-
 }
 func parseFormat(s string) (string, string) {
 	if s == "" {
