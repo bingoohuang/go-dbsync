@@ -5,7 +5,6 @@ import (
 	"github.com/go-redis/redis"
 	"strconv"
 	"time"
-	"strings"
 )
 
 func newRedisClient(server RedisServer) *redis.Client {
@@ -14,22 +13,6 @@ func newRedisClient(server RedisServer) *redis.Client {
 		Password: server.Password, // no password set
 		DB:       server.DB,       // use default DB
 	})
-}
-
-func redisCli(server RedisServer, clientCommand string) (string, error) {
-	fields := strings.Fields(clientCommand)
-
-	client := newRedisClient(server)
-	defer client.Close()
-
-	args := make([]interface{}, len(fields))
-	for index, field := range fields {
-		args[index] = field
-	}
-
-	cmd := redis.NewStringCmd(args...)
-	client.Process(cmd)
-	return cmd.Result()
 }
 
 func redisInfo(server RedisServer) string {
