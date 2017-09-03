@@ -245,33 +245,33 @@ $(function () {
         }
 
         var contentHtml = '<div><span class="key">' + key + '</span></div>'
-        contentHtml += '<table>' +
-            '<tr><td>Type:</td><td colspan="2">' + type + '</td></tr>' +
-            '<tr><td>TTL:</td><td colspan="2">' + ttl + '</td></tr>' +
-            '<tr><td>Encoding:</td><td colspan="2">' + encoding + '</td></tr>' +
-            '<tr><td>Format:</td><td colspan="2">' + format + '</td></tr>' +
-            '<tr><td>Size:</td><td colspan="2">' + size + '</td></tr>' +
-            '<tr><td>Value:</td><td colspan="2"><span class="valueSave sprite sprite-save"></span><span class="keyDelete sprite sprite-delete"></span></td></tr>'
+        contentHtml += '<table id="contentTable">' +
+            '<tr><td class="titleCell">Type:</td><td colspan="2">' + type + '</td></tr>' +
+            '<tr><td class="titleCell">TTL:</td><td colspan="2">' + ttl + '</td></tr>' +
+            '<tr><td class="titleCell">Encoding:</td><td colspan="2">' + encoding + '</td></tr>' +
+            '<tr><td class="titleCell">Format:</td><td colspan="2">' + format + '</td></tr>' +
+            '<tr><td class="titleCell">Size:</td><td colspan="2">' + size + '</td></tr>' +
+            '<tr><td class="titleCell">Value:</td><td colspan="2"><span class="valueSave sprite sprite-save"></span><span class="keyDelete sprite sprite-delete"></span></td></tr>'
 
         switch (type) {
             case "string":
                 contentHtml += '<tr><td colspan="3"><textarea id="code">' + content + '</textarea></td></tr>'
                 break
             case "hash":
-                contentHtml += '<tr><td>Field</td><td colspan="2">Value</td></tr>'
+                contentHtml += '<tr><td class="titleCell">Field</td><td class="titleCell" colspan="2">Value</td></tr>'
                 for (var key in content) {
                     contentHtml += '<tr><td contenteditable="true">' + key + '</td><td colspan="2" contenteditable="true">' + content[key] + '</td></tr>'
                 }
                 break
             case "set":
             case "list":
-                contentHtml += '<tr><td>#</td><td colspan="2">Value</td></tr>'
+                contentHtml += '<tr><td class="titleCell">#</td><td class="titleCell" colspan="2">Value</td></tr>'
                 for (var i = 0; i < content.length; ++i) {
                     contentHtml += '<tr><td contenteditable="true">' + i + '</td><td colspan="2" contenteditable="true">' + content[i] + '</td></tr>'
                 }
                 break
             case "zset":
-                contentHtml += '<tr><td>#</td><td>Score</td><td>Value</td></tr>'
+                contentHtml += '<tr><td class="titleCell">#</td><td class="titleCell">Score</td><td class="titleCell">Value</td></tr>'
                 for (var i = 0; i < content.length; ++i) {
                     contentHtml += '<tr><td contenteditable="true">' + i + '</td><td contenteditable="true">' + content[i].Score + '</td><td>' + content[i].Member + '</td></tr>'
                 }

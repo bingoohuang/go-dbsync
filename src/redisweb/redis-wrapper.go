@@ -122,14 +122,15 @@ func displayContent(server RedisServer, key string, valType string) *ContentResu
 
 	var errorMessage string
 	ttl, _ := client.TTL(key).Result()
-	size, _ := client.StrLen(key).Result()
 	encoding, _ := client.ObjectEncoding(key).Result()
 	var content interface{}
 	var format string
 	var err error
+	var size int64
 
 	switch valType {
 	case "string":
+		size, _ = client.StrLen(key).Result()
 		content, err = client.Get(key).Result()
 		if err == nil {
 			content, format = parseFormat(content.(string))
@@ -137,12 +138,16 @@ func displayContent(server RedisServer, key string, valType string) *ContentResu
 
 	case "hash":
 		content, err = client.HGetAll(key).Result()
+		size, _ = client.HLen(key).Result()
 	case "list":
 		content, err = client.LRange(key, 0, -1).Result()
+		size, _ = client.LLen(key).Result()
 	case "set":
 		content, err = client.SMembers(key).Result()
+		size, _ = client.SCard(key).Result()
 	case "zset":
 		content, err = client.ZRangeWithScores(key, 0, -1).Result()
+		size, _ = client.ZCard(key).Result()
 	default:
 		content = "unknown type " + valType
 	}
