@@ -14,6 +14,10 @@
     margin-left: -20px;
 }
 
+#refreshKeys, #redisTerminal {
+    margin-left: -10px;
+}
+
 #sidebar {
     margin-left: 10px;
     position: absolute;
@@ -41,6 +45,19 @@ p {
     color: blue;
 }
 
+#directCmd {
+    width: 500px;
+}
+
+#directCmdResult {
+    margin-top: 10px;
+    background-color: black;
+    color: white;
+    width: 90%;
+}
+#directCmdResult pre {
+    margin: 0;
+}
 
 #keys ul {
     list-style-type: none;

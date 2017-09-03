@@ -1,3 +1,5 @@
+/* https://spritegen.website-performance.org/ */
+
 .sprite {
     background: url(spritesheet.png) no-repeat;
     display: block;
@@ -57,56 +59,68 @@
     background-position: -5px -57px;
 }
 
-.sprite-reset {
+.sprite-refresh {
     width: 16px;
     height: 16px;
     background-position: -31px -57px;
 }
 
-.sprite-save {
+.sprite-reset {
     width: 16px;
     height: 16px;
     background-position: -57px -57px;
 }
 
+.sprite-save {
+    width: 16px;
+    height: 16px;
+    background-position: -83px -57px;
+}
+
+.sprite-terminal {
+    width: 14px;
+    height: 16px;
+    background-position: -5px -83px;
+}
+
 .sprite-tree-folder-collapsed {
     width: 12px;
     height: 24px;
-    background-position: -83px -57px;
+    background-position: -29px -83px;
 }
 
 .sprite-tree-folder-expanded {
     width: 12px;
     height: 24px;
-    background-position: -109px -5px;
+    background-position: -51px -83px;
 }
 
 .sprite-tree-lastnode {
     width: 12px;
     height: 13px;
-    background-position: -109px -39px;
+    background-position: -73px -83px;
 }
 
 .sprite-tree-lastnode-collapsed {
     width: 12px;
     height: 17px;
-    background-position: -105px -62px;
+    background-position: -95px -83px;
 }
 
 .sprite-tree-lastnode-expanded {
     width: 12px;
     height: 17px;
-    background-position: -5px -89px;
+    background-position: -109px -5px;
 }
 
 .sprite-tree-node {
     width: 12px;
     height: 24px;
-    background-position: -27px -89px;
+    background-position: -109px -32px;
 }
 
 .sprite-tree-vline {
     width: 5px;
     height: 1px;
-    background-position: -49px -89px;
+    background-position: -109px -66px;
 }

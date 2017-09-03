@@ -23,25 +23,43 @@ $(function () {
 
     refreshKeys();
 
-    $('#serverFilterKeysBtn').click(function () {
+    $('#serverFilterKeysBtn,#refreshKeys').click(function () {
         refreshKeys()
     })
-    $('#directCmdBtn').click(function () {
+
+    function executeRedisCmd() {
         var cmd = $('#directCmd').val()
+        var server = $('#servers').val()
         $.ajax({
-            type: 'GET',
+            type: 'POST',
             url: pathname + "/redisCli",
-            data: {server: $('#servers').val(), database: $('#databases').val(), cmd: cmd},
+            data: {server: server, database: $('#databases').val(), cmd: cmd},
             success: function (result, textStatus, request) {
-                var contentHtml = '<div>' + cmd + '</div>' +
+                var resultHtml = '<pre>' + server + '&gt; ' + cmd + '</pre>' +
                     '<pre>' + result + '</pre>'
 
-                $('#frame').html(contentHtml)
+                $('#directCmdResult').prepend(resultHtml)
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
             }
         })
+    }
+
+    $('#redisTerminal').click(function () {
+        var contentHtml = '<div><input id="directCmd" placeholder="input commands"><button id="redisTerminalBtn">Execute</button></div>' +
+            '<div id="directCmdResult"></div>'
+        $('#frame').html(contentHtml)
+
+        $('#directCmd').keydown(function (event) {
+            var keyCode = event.keyCode || event.which
+            if (keyCode == 13) {
+                executeRedisCmd()
+            }
+        })
+        $('#redisTerminalBtn').click(executeRedisCmd)
+
+
     })
 
     $('#redisInfo').click(function () {
