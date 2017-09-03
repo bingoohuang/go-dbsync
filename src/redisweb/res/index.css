@@ -1,3 +1,7 @@
+body {
+    font-family: Consolas, Monaco, monospace;
+}
+
 .operationArea {
     margin-bottom: 10px;
 }
@@ -15,7 +19,7 @@
 }
 
 #contentTable {
-    min-width: 350px;
+    min-width: 500px;
 }
 
 #refreshKeys, #redisTerminal {
