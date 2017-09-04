@@ -112,7 +112,7 @@ $(function () {
         })
         toggleFilterKeys()
     }
-    
+
     function toggleFilterKeys() {
         var filter = $.trim($('#filterKeys').val()).toUpperCase()
 
