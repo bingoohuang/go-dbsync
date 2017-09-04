@@ -133,12 +133,13 @@ func displayContent(server RedisServer, key string, valType string) *ContentResu
 		size, _ = client.StrLen(key).Result()
 		content, err = client.Get(key).Result()
 		if err == nil {
-			content, format = parseFormat(content.(string))
+			content, format = parseStringFormat(content.(string))
 		}
 
 	case "hash":
 		content, err = client.HGetAll(key).Result()
 		size, _ = client.HLen(key).Result()
+		content = parseHashContent(content.(map[string]string))
 	case "list":
 		content, err = client.LRange(key, 0, -1).Result()
 		size, _ = client.LLen(key).Result()
@@ -166,7 +167,26 @@ func displayContent(server RedisServer, key string, valType string) *ContentResu
 		Format:   format,
 	}
 }
-func parseFormat(s string) (string, string) {
+func parseHashContent(m map[string]string) (map[string]string) {
+	converted := make(map[string]string, len(m))
+	for k, v := range m {
+		ck := convertString(k)
+		cv := convertString(v)
+		converted[ck] = cv
+	}
+
+	return converted
+}
+
+func convertString(s string) (string) {
+	if s == "" || myutil.IsPrintable(s) {
+		return s
+	}
+
+	return strconv.Quote(s)
+}
+
+func parseStringFormat(s string) (string, string) {
 	if s == "" {
 		return s, "UNKNOWN"
 	}

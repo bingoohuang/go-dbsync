@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/holys/goredis"
-	"strings"
 	"regexp"
+	"strings"
 )
 
 // Read-Eval-Print Loop
