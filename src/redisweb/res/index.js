@@ -179,7 +179,6 @@ $(function () {
         contentHtml += '<tr class="newKeyTr string"><td colspan="2"><textarea id="code"></textarea></td></tr>'
 
         contentHtml += '<tr class="newKeyTr hash"><td class="titleCell">Field</td><td colspan="2" class="titleCell">Value</td></tr>'
-
         for (var i = 0; i < 10; ++i) {
             contentHtml += '<tr class="newKeyTr hash"><td contenteditable="true"></td><td colspan="2" contenteditable="true"></td></tr>'
         }
@@ -243,7 +242,14 @@ $(function () {
             var key = $('#key').val()
             var ttl = $('#ttl').val()
             var format = $('#format').val()
-            var value = codeMirror != null && codeMirror.getValue() || $('#code').val()
+            var value = "" 
+            if (type == 'string') {
+                value = codeMirror != null && codeMirror.getValue() || $('#code').val()
+            } else if (type == 'hash') {
+                $('tr.hash').gt(0).each(function () {
+                    
+                })
+            }
 
             if (confirm("Are you sure to save save for " + key + "?")) {
                 $.ajax({
