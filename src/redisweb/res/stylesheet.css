@@ -1,157 +1,32 @@
-/* https://spritegen.website-performance.org/ */
+/* http://css.spritegen.com/ */
 
 .sprite {
     background: url(spritesheet.png) no-repeat;
     display: block;
 }
 
-
-.sprite-add {
-    width: 16px;
-    height: 16px;
-    background-position: -5px -5px;
-}
-
-.sprite-datatype-hash {
-    width: 16px;
-    height: 16px;
-    background-position: -31px -5px;
-}
-
-.sprite-datatype-list {
-    width: 16px;
-    height: 16px;
-    background-position: -57px -5px;
-}
-
-.sprite-datatype-set {
-    width: 16px;
-    height: 16px;
-    background-position: -83px -5px;
-}
-
-.sprite-datatype-string {
-    width: 16px;
-    height: 16px;
-    background-position: -5px -31px;
-}
-
-.sprite-datatype-zset {
-    width: 16px;
-    height: 16px;
-    background-position: -31px -31px;
-}
-
-.sprite-delete {
-    width: 16px;
-    height: 16px;
-    background-position: -57px -31px;
-}
-
-.sprite-edit {
-    width: 16px;
-    height: 16px;
-    background-position: -83px -31px;
-}
-
-.sprite-export {
-    width: 16px;
-    height: 16px;
-    background-position: -5px -57px;
-}
-
-.sprite-flush {
-    width: 16px;
-    height: 16px;
-    background-position: -31px -57px;
-}
-
-.sprite-folder-open {
-    width: 16px;
-    height: 16px;
-    background-position: -57px -57px;
-}
-
-.sprite-import {
-    width: 16px;
-    height: 16px;
-    background-position: -83px -57px;
-}
-
-.sprite-info {
-    width: 16px;
-    height: 16px;
-    background-position: -5px -83px;
-}
-
-.sprite-logout {
-    width: 16px;
-    height: 16px;
-    background-position: -31px -83px;
-}
-
-.sprite-refresh {
-    width: 16px;
-    height: 16px;
-    background-position: -57px -83px;
-}
-
-.sprite-reset {
-    width: 16px;
-    height: 16px;
-    background-position: -83px -83px;
-}
-
-.sprite-save {
-    width: 16px;
-    height: 16px;
-    background-position: -109px -5px;
-}
-
-.sprite-terminal {
-    width: 14px;
-    height: 16px;
-    background-position: -135px -5px;
-}
-
-.sprite-tree-folder-collapsed {
-    width: 12px;
-    height: 24px;
-    background-position: -109px -31px;
-}
-
-.sprite-tree-folder-expanded {
-    width: 12px;
-    height: 24px;
-    background-position: -131px -31px;
-}
-
-.sprite-tree-lastnode {
-    width: 12px;
-    height: 13px;
-    background-position: -109px -65px;
-}
-
-.sprite-tree-lastnode-collapsed {
-    width: 12px;
-    height: 17px;
-    background-position: -131px -65px;
-}
-
-.sprite-tree-lastnode-expanded {
-    width: 12px;
-    height: 17px;
-    background-position: -109px -92px;
-}
-
-.sprite-tree-node {
-    width: 12px;
-    height: 24px;
-    background-position: -131px -92px;
-}
-
-.sprite-tree-vline {
-    width: 5px;
-    height: 1px;
-    background-position: -5px -126px;
-}
+.sprite-add { background-position: -0px -0px; width: 16px; height: 16px; }
+.sprite-datatype-hash { background-position: -0px -16px; width: 16px; height: 16px; }
+.sprite-datatype-list { background-position: -0px -32px; width: 16px; height: 16px; }
+.sprite-datatype-set { background-position: -0px -48px; width: 16px; height: 16px; }
+.sprite-datatype-string { background-position: -0px -64px; width: 16px; height: 16px; }
+.sprite-datatype-zset { background-position: -0px -80px; width: 16px; height: 16px; }
+.sprite-delete { background-position: -0px -96px; width: 16px; height: 16px; }
+.sprite-edit { background-position: -0px -112px; width: 16px; height: 16px; }
+.sprite-export { background-position: -0px -128px; width: 16px; height: 16px; }
+.sprite-flush { background-position: -0px -144px; width: 16px; height: 16px; }
+.sprite-folder-open { background-position: -0px -160px; width: 16px; height: 16px; }
+.sprite-import { background-position: -0px -176px; width: 16px; height: 16px; }
+.sprite-info { background-position: -0px -192px; width: 16px; height: 16px; }
+.sprite-logout { background-position: -0px -208px; width: 16px; height: 16px; }
+.sprite-refresh { background-position: -0px -224px; width: 16px; height: 16px; }
+.sprite-reset { background-position: -0px -240px; width: 16px; height: 16px; }
+.sprite-save { background-position: -0px -256px; width: 16px; height: 16px; }
+.sprite-terminal { background-position: -0px -272px; width: 14px; height: 16px; }
+.sprite-tree-folder-collapsed { background-position: -0px -288px; width: 12px; height: 24px; }
+.sprite-tree-folder-expanded { background-position: -0px -312px; width: 12px; height: 24px; }
+.sprite-tree-lastnode-collapsed { background-position: -0px -336px; width: 12px; height: 17px; }
+.sprite-tree-lastnode-expanded { background-position: -0px -353px; width: 12px; height: 17px; }
+.sprite-tree-lastnode { background-position: -0px -370px; width: 12px; height: 13px; }
+.sprite-tree-node { background-position: -0px -383px; width: 12px; height: 24px; }
+.sprite-tree-vline { background-position: -0px -407px; width: 5px; height: 1px; }

@@ -167,7 +167,7 @@ func displayContent(server RedisServer, key string, valType string) *ContentResu
 		Format:   format,
 	}
 }
-func parseHashContent(m map[string]string) (map[string]string) {
+func parseHashContent(m map[string]string) map[string]string {
 	converted := make(map[string]string, len(m))
 	for k, v := range m {
 		ck := convertString(k)
@@ -178,7 +178,7 @@ func parseHashContent(m map[string]string) (map[string]string) {
 	return converted
 }
 
-func convertString(s string) (string) {
+func convertString(s string) string {
 	if s == "" || myutil.IsPrintable(s) {
 		return s
 	}
