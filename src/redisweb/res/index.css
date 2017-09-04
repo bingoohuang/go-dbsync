@@ -18,7 +18,7 @@ body {
     margin-left: -20px;
 }
 
-#contentTable {
+.contentTable {
     min-width: 500px;
 }
 
@@ -27,6 +27,7 @@ body {
 }
 
 #sidebar {
+    margin-top: 10px;
     margin-left: 10px;
     position: absolute;
     top: 0;
@@ -131,6 +132,7 @@ p {
 }
 
 #frame {
+    margin-top: 10px;
     position: fixed;
     top: 0;
     left: 305px;
