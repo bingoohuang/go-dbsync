@@ -110,10 +110,11 @@ $(function () {
                 }
             })
         })
+        toggleFilterKeys()
     }
-
-    $('.filterKeys').keyup(function () {
-        var filter = $.trim($(this).val()).toUpperCase()
+    
+    function toggleFilterKeys() {
+        var filter = $.trim($('#filterKeys').val()).toUpperCase()
 
         $('#keys ul li').each(function (index, li) {
             var $li = $(li)
@@ -121,7 +122,9 @@ $(function () {
             var contains = text.indexOf(filter) > -1
             $li.toggle(contains)
         })
-    })
+    }
+
+    $('#filterKeys').keyup(toggleFilterKeys)
 
     function chosenKey(key) {
         $('#keys ul li').removeClass('chosen').each(function (index, li) {
