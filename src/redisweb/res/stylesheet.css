@@ -3,6 +3,7 @@
 .sprite {
     background: url(spritesheet.png) no-repeat;
     display: block;
+    vertical-align: middle;
 }
 
 .sprite-add { background-position: -0px -0px; width: 16px; height: 16px; }
