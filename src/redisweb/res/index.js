@@ -6,8 +6,7 @@ $(function () {
 
     function refreshKeys(key) {
         $.ajax({
-            type: 'GET',
-            url: pathname + "/listKeys",
+            type: 'GET', url: pathname + "/listKeys",
             data: {server: $('#servers').val(), database: $('#databases').val(), pattern: $('#serverFilterKeys').val()},
             success: function (content, textStatus, request) {
                 showKeysTree(content)
@@ -21,18 +20,15 @@ $(function () {
         })
     }
 
-    refreshKeys()
-
     $('#serverFilterKeysBtn,#refreshKeys').click(function () {
         refreshKeys()
-    })
+    }).click()
 
     function executeRedisCmd() {
         var cmd = $('#directCmd').val()
         var server = $('#servers').val()
         $.ajax({
-            type: 'POST',
-            url: pathname + "/redisCli",
+            type: 'POST', url: pathname + "/redisCli",
             data: {server: server, database: $('#databases').val(), cmd: cmd},
             success: function (result, textStatus, request) {
                 var resultHtml = '<pre>' + server + '&gt; ' + cmd + '</pre>' +
@@ -47,9 +43,8 @@ $(function () {
     }
 
     $('#redisTerminal').click(function () {
-        var contentHtml = '<div><input id="directCmd" placeholder="input commands"><button id="redisTerminalBtn">Execute</button></div>' +
-            '<div id="directCmdResult"></div>'
-        $('#frame').html(contentHtml)
+        $('#frame').html('<div><input id="directCmd" placeholder="input commands"><button id="redisTerminalBtn">Execute</button></div>' +
+            '<div id="directCmdResult"></div>')
 
         $('#directCmd').keydown(function (event) {
             var keyCode = event.keyCode || event.which
@@ -79,6 +74,7 @@ $(function () {
 
     function showKeysTree(keysArray) {
         $('#keysNum').html('(' + keysArray.length + ')')
+
         var keysHtml = '<ul>'
         for (var i = 0; i < keysArray.length; ++i) {
             var key = keysArray[i]
@@ -97,8 +93,7 @@ $(function () {
             var key = $this.find('.keyValue').text()
             var type = $this.attr('data-type')
             $.ajax({
-                type: 'GET',
-                url: pathname + "/showContent",
+                type: 'GET', url: pathname + "/showContent",
                 data: {server: $('#servers').val(), database: $('#databases').val(), key: key, type: type},
                 success: function (result, textStatus, request) {
                     showContent(key, type, result.Content, result.Ttl, result.Size, result.Encoding, result.Error, result.Exists, result.Format)
@@ -149,8 +144,7 @@ $(function () {
 
     function showContentAjax(key, type) {
         $.ajax({
-            type: 'GET',
-            url: pathname + "/showContent",
+            type: 'GET', url: pathname + "/showContent",
             data: {server: $('#servers').val(), database: $('#databases').val(), key: key, type: type},
             success: function (result, textStatus, request) {
                 showContent(key, type, result.Content, result.Ttl, result.Size, result.Encoding, result.Error, result.Exists, result.Format)
@@ -213,13 +207,12 @@ $(function () {
             })
         }
 
-        var jsonValue = JSON.stringify(value)
-        return jsonValue;
+        return JSON.stringify(value);
     }
 
     $('#addKey').click(function () {
-        var contentHtml = '<div><span class="key">Add another key</span></div>'
-        contentHtml += '<table class="contentTable">' +
+        var contentHtml = '<div><span class="key">Add another key</span></div>' +
+            '<table class="contentTable">' +
             '<tr><td class="titleCell">Type:</td><td colspan="2"><select name="type" id="type">' +
             '<option value="string">String</option><option value="hash">Hash</option><option value="list">List</option><option value="set">Set</option><option value="zset">Sorted Set</option>' +
             '</select></td></tr>' +
@@ -247,16 +240,14 @@ $(function () {
             contentHtml += '<tr class="newKeyTr zset"><td>' + i + '</td><td contenteditable="true"></td><td contenteditable="true"></td></tr>'
         }
 
-        contentHtml += '</table>'
-        contentHtml += '<button id="addMoreRowsBtn">Add More Rows</button>'
+        contentHtml += '</table><button id="addMoreRowsBtn">Add More Rows</button>'
 
         $('#frame').html(contentHtml)
 
         $('tr.newKeyTr').hide()
         $('tr.string').show()
         $('#addMoreRowsBtn').hide().click(function () {
-            var type = $('#type').val()
-            addMoreRows(type)
+            addMoreRows($('#type').val())
         })
 
 
@@ -271,9 +262,7 @@ $(function () {
             codeMirror = null
             if ($(this).val() == 'JSON' && $('#type').val() == 'string') {
                 codeMirror = CodeMirror.fromTextArea(document.getElementById('code'), {
-                    mode: 'application/json',
-                    lineNumbers: true,
-                    matchBrackets: true
+                    mode: 'application/json', lineNumbers: true, matchBrackets: true
                 })
             }
         })
@@ -287,17 +276,10 @@ $(function () {
 
             if (confirm("Are you sure to save save for " + key + "?")) {
                 $.ajax({
-                    type: 'POST',
-                    url: pathname + "/newKey",
+                    type: 'POST', url: pathname + "/newKey",
                     data: {
-                        server: $('#servers').val(),
-                        database: $('#databases').val(),
-
-                        type: type,
-                        key: key,
-                        ttl: ttl,
-                        format: format,
-                        value: jsonValue
+                        server: $('#servers').val(), database: $('#databases').val(),
+                        type: type, key: key, ttl: ttl, format: format, value: jsonValue
                     },
                     success: function (content, textStatus, request) {
                         if (content == 'OK') {
@@ -329,8 +311,8 @@ $(function () {
             return
         }
 
-        var contentHtml = '<div><span class="key">' + key + '</span></div>'
-        contentHtml += '<table class="contentTable">' +
+        var contentHtml = '<div><span class="key">' + key + '</span></div>' +
+            '<table class="contentTable">' +
             '<tr><td class="titleCell">Type:</td><td colspan="2">' + type + '</td></tr>' +
             '<tr><td class="titleCell">TTL:</td><td colspan="2" contenteditable="true" id="ttl">' + ttl + '</td></tr>' +
             '<tr><td class="titleCell">Encoding:</td><td colspan="2">' + encoding + '</td></tr>' +
@@ -362,8 +344,7 @@ $(function () {
                 }
                 break
         }
-        contentHtml += '</table>'
-        contentHtml += '<button id="addMoreRowsBtn">Add More Rows</button>'
+        contentHtml += '</table><button id="addMoreRowsBtn">Add More Rows</button>'
 
         $('#frame').html(contentHtml)
         $('#addMoreRowsBtn').toggle(type != "string").click(function () {
@@ -373,9 +354,7 @@ $(function () {
         codeMirror = null
         if (format === "JSON") {
             codeMirror = CodeMirror.fromTextArea(document.getElementById('code'), {
-                mode: 'application/json',
-                lineNumbers: true,
-                matchBrackets: true
+                mode: 'application/json', lineNumbers: true, matchBrackets: true
             })
         } else {
             autosize($('#code'))
@@ -384,19 +363,15 @@ $(function () {
         $('.keyDelete').click(function () {
             if (confirm("Are you sure to delete " + key + "?")) {
                 $.ajax({
-                    type: 'POST',
-                    url: pathname + "/deleteKey",
+                    type: 'POST', url: pathname + "/deleteKey",
                     data: {server: $('#servers').val(), database: $('#databases').val(), key: key},
                     success: function (content, textStatus, request) {
                         if (content != 'OK') {
                             alert(content)
-                            return
+                        } else {
+                            removeKey(key)
+                            $('#frame').html('<div><span class="key">' + key + ' does not exits</span></div>')
                         }
-
-                        removeKey(key)
-
-                        contentHtml = '<div><span class="key">' + key + ' does not exits</span></div>'
-                        $('#frame').html(contentHtml)
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         alert(jqXHR.responseText + "\nStatus: " + textStatus + "\nError: " + errorThrown)
@@ -409,17 +384,10 @@ $(function () {
             if (confirm("Are you sure to save changes for " + key + "?")) {
                 var changedContent = extractValue(type)
                 $.ajax({
-                    type: 'POST',
-                    url: pathname + "/changeContent",
+                    type: 'POST', url: pathname + "/changeContent",
                     data: {
-                        server: $('#servers').val(),
-                        database: $('#databases').val(),
-
-                        key: key,
-                        type: type,
-                        ttl: $('#ttl').text(),
-                        value: changedContent,
-                        format: format
+                        server: $('#servers').val(), database: $('#databases').val(),
+                        key: key, type: type, ttl: $('#ttl').text(), value: changedContent, format: format
                     },
                     success: function (content, textStatus, request) {
                         if (content == 'OK') {
