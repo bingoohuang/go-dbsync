@@ -2,6 +2,7 @@ package main
 
 import (
 	"../myutil"
+	"encoding/json"
 	"github.com/go-redis/redis"
 	"strconv"
 	"time"
@@ -70,8 +71,47 @@ func newKey(server RedisServer, keyType, key, ttl, format, val string) string {
 
 	switch keyType {
 	case "string":
-		_, err = client.Set(key, val, duration).Result()
-
+		var str string
+		err = json.Unmarshal([]byte(val), &str)
+		if err == nil {
+			_, err = client.Set(key, str, duration).Result()
+		}
+	case "hash":
+		var hash map[string]interface{}
+		err = json.Unmarshal([]byte(val), &hash)
+		if err == nil {
+			_, err = client.HMSet(key, hash).Result()
+		}
+		if err == nil && duration > 0 {
+			client.Expire(key, duration)
+		}
+	case "set":
+		var set []interface{}
+		err = json.Unmarshal([]byte(val), &set)
+		if err == nil {
+			_, err = client.SAdd(key, set...).Result()
+		}
+		if err == nil && duration > 0 {
+			client.Expire(key, duration)
+		}
+	case "list":
+		var set []interface{}
+		err = json.Unmarshal([]byte(val), &set)
+		if err == nil {
+			_, err = client.RPush(key, set...).Result()
+		}
+		if err == nil && duration > 0 {
+			client.Expire(key, duration)
+		}
+	case "zset":
+		var members []redis.Z
+		err = json.Unmarshal([]byte(val), &members)
+		if err == nil {
+			_, err = client.ZAdd(key, members...).Result()
+		}
+		if err == nil && duration > 0 {
+			client.Expire(key, duration)
+		}
 	}
 
 	if err != nil {

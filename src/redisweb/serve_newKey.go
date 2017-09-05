@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"strings"
 )
@@ -15,7 +16,7 @@ func serveNewKey(w http.ResponseWriter, req *http.Request) {
 
 	server := findRedisServer(req)
 
-	//log.Println("keyType:", keyType, ",key:", key, ",ttl:", ttl, ",format:", format, ",value:", value)
+	log.Println("keyType:", keyType, ",key:", key, ",ttl:", ttl, ",format:", format, ",value:", value)
 
 	ok := newKey(server, keyType, key, ttl, format, value)
 	w.Write([]byte(ok))

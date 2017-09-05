@@ -58,8 +58,6 @@ $(function () {
             }
         })
         $('#redisTerminalBtn').click(executeRedisCmd)
-
-
     })
 
     $('#redisInfo').click(function () {
@@ -242,14 +240,41 @@ $(function () {
             var key = $('#key').val()
             var ttl = $('#ttl').val()
             var format = $('#format').val()
-            var value = "" 
+            var value = null
             if (type == 'string') {
                 value = codeMirror != null && codeMirror.getValue() || $('#code').val()
             } else if (type == 'hash') {
-                $('tr.hash').gt(0).each(function () {
-                    
+                value = {}
+                $('tr.hash:gt(0)').each(function (index, tr) {
+                    var tds = $(tr).find('td')
+                    var key = $.trim(tds.eq(0).text())
+                    var val = $.trim(tds.eq(1).text())
+                    if (key != "" && val != "") {
+                        value[key] = val
+                    }
+                })
+            } else if (type == 'list' || type == 'set') {
+                value = []
+                $('tr.' + type + ':gt(0)').each(function (index, tr) {
+                    var tds = $(tr).find('td')
+                    var val = $.trim(tds.eq(1).text())
+                    if (val != "") {
+                        value.push(val)
+                    }
+                })
+            } else if (type == 'zset') {
+                value = []
+                $('tr.zset:gt(0)').each(function (index, tr) {
+                    var tds = $(tr).find('td')
+                    var score = $.trim(tds.eq(1).text())
+                    var val = $.trim(tds.eq(2).text())
+                    if (score != "" && val != "") {
+                        value.push({Score: +score, Member: val})
+                    }
                 })
             }
+
+            var jsonValue = JSON.stringify(value)
 
             if (confirm("Are you sure to save save for " + key + "?")) {
                 $.ajax({
@@ -262,7 +287,7 @@ $(function () {
                         key: key,
                         ttl: ttl,
                         format: format,
-                        value: value
+                        value: jsonValue
                     },
                     success: function (content, textStatus, request) {
                         if (content == 'OK') {
