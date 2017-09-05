@@ -208,7 +208,7 @@ func convertString(s string) string {
 	}
 
 	quote := strconv.Quote(s)
-	return quote[1:len(quote) - 1]
+	return quote[1 : len(quote)-1]
 }
 
 func parseStringFormat(s string) (string, string) {
@@ -225,7 +225,7 @@ func parseStringFormat(s string) (string, string) {
 	}
 
 	quote := strconv.Quote(s)
-	return quote[1:len(quote) - 1], "UNKNOWN"
+	return quote[1 : len(quote)-1], "UNKNOWN"
 }
 
 type KeysResult struct {
