@@ -20,6 +20,12 @@ body {
 
 .contentTable {
     min-width: 500px;
+    width: 90%;
+}
+
+#code {
+    width: 99%;
+    border: 0;
 }
 
 #refreshKeys, #redisTerminal {
@@ -39,6 +45,7 @@ body {
 
 .titleCell {
     background-color: lightyellow;
+    width: 50px;
 }
 
 p {
