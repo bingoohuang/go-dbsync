@@ -18,6 +18,6 @@ func serveNewKey(w http.ResponseWriter, req *http.Request) {
 
 	log.Println("keyType:", keyType, ",key:", key, ",ttl:", ttl, ",format:", format, ",value:", value)
 
-	ok := newKey(server, keyType, key, ttl, format, value)
+	ok := newKey(server, keyType, key, ttl, value)
 	w.Write([]byte(ok))
 }

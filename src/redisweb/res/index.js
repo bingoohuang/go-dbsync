@@ -21,7 +21,7 @@ $(function () {
         })
     }
 
-    refreshKeys();
+    refreshKeys()
 
     $('#serverFilterKeysBtn,#refreshKeys').click(function () {
         refreshKeys()
@@ -161,6 +161,62 @@ $(function () {
         })
     }
 
+    function addMoreRows(type) {
+        var rows = $('tr.' + type)
+        var startRowNum = rows.length - 1
+
+        var moreRows = ''
+        for (var i = 0; i < 10; ++i) {
+            if (type == 'hash') {
+                moreRows += '<tr class="newKeyTr hash"><td contenteditable="true"></td><td colspan="2" contenteditable="true"></td></tr>'
+            } else if (type == 'list' || type == 'set') {
+                moreRows += '<tr class="newKeyTr list set"><td>' + (startRowNum + i) + '</td><td colspan="2" contenteditable="true"></td></tr>'
+            } else if (type == 'zset') {
+                moreRows += '<tr class="newKeyTr zset"><td>' + (startRowNum + i) + '</td><td contenteditable="true"></td><td contenteditable="true"></td></tr>'
+            }
+        }
+        $(moreRows).appendTo($('.contentTable'))
+    }
+
+    function extractValue(type) {
+        var value = null
+        if (type == 'string') {
+            value = codeMirror != null && codeMirror.getValue() || $('#code').val()
+        } else if (type == 'hash') {
+            value = {}
+            $('tr.hash:gt(0)').each(function (index, tr) {
+                var tds = $(tr).find('td')
+                var key = $.trim(tds.eq(0).text())
+                var val = $.trim(tds.eq(1).text())
+                if (key != "" && val != "") {
+                    value[key] = val
+                }
+            })
+        } else if (type == 'list' || type == 'set') {
+            value = []
+            $('tr.' + type + ':gt(0)').each(function (index, tr) {
+                var tds = $(tr).find('td')
+                var val = $.trim(tds.eq(1).text())
+                if (val != "") {
+                    value.push(val)
+                }
+            })
+        } else if (type == 'zset') {
+            value = []
+            $('tr.zset:gt(0)').each(function (index, tr) {
+                var tds = $(tr).find('td')
+                var score = $.trim(tds.eq(1).text())
+                var val = $.trim(tds.eq(2).text())
+                if (score != "" && val != "") {
+                    value.push({Score: +score, Member: val})
+                }
+            })
+        }
+
+        var jsonValue = JSON.stringify(value)
+        return jsonValue;
+    }
+
     $('#addKey').click(function () {
         var contentHtml = '<div><span class="key">Add another key</span></div>'
         contentHtml += '<table class="contentTable">' +
@@ -200,20 +256,7 @@ $(function () {
         $('tr.string').show()
         $('#addMoreRowsBtn').hide().click(function () {
             var type = $('#type').val()
-            var rows = $('tr.' + type)
-            var startRowNum = rows.length - 1
-
-            var moreRows = ''
-            for (var i = 0; i < 10; ++i) {
-                if (type == 'hash') {
-                    moreRows += '<tr class="newKeyTr hash"><td contenteditable="true"></td><td colspan="2" contenteditable="true"></td></tr>'
-                } else if (type == 'list' || type == 'set') {
-                    moreRows += '<tr class="newKeyTr list set"><td>' + (startRowNum + i) + '</td><td colspan="2" contenteditable="true"></td></tr>'
-                } else if (type == 'zset') {
-                    moreRows += '<tr class="newKeyTr zset"><td>' + (startRowNum + i) + '</td><td contenteditable="true"></td><td contenteditable="true"></td></tr>'
-                }
-            }
-            $(moreRows).appendTo($('.contentTable'))
+            addMoreRows(type)
         })
 
 
@@ -240,41 +283,7 @@ $(function () {
             var key = $('#key').val()
             var ttl = $('#ttl').val()
             var format = $('#format').val()
-            var value = null
-            if (type == 'string') {
-                value = codeMirror != null && codeMirror.getValue() || $('#code').val()
-            } else if (type == 'hash') {
-                value = {}
-                $('tr.hash:gt(0)').each(function (index, tr) {
-                    var tds = $(tr).find('td')
-                    var key = $.trim(tds.eq(0).text())
-                    var val = $.trim(tds.eq(1).text())
-                    if (key != "" && val != "") {
-                        value[key] = val
-                    }
-                })
-            } else if (type == 'list' || type == 'set') {
-                value = []
-                $('tr.' + type + ':gt(0)').each(function (index, tr) {
-                    var tds = $(tr).find('td')
-                    var val = $.trim(tds.eq(1).text())
-                    if (val != "") {
-                        value.push(val)
-                    }
-                })
-            } else if (type == 'zset') {
-                value = []
-                $('tr.zset:gt(0)').each(function (index, tr) {
-                    var tds = $(tr).find('td')
-                    var score = $.trim(tds.eq(1).text())
-                    var val = $.trim(tds.eq(2).text())
-                    if (score != "" && val != "") {
-                        value.push({Score: +score, Member: val})
-                    }
-                })
-            }
-
-            var jsonValue = JSON.stringify(value)
+            var jsonValue = extractValue(type);
 
             if (confirm("Are you sure to save save for " + key + "?")) {
                 $.ajax({
@@ -283,6 +292,7 @@ $(function () {
                     data: {
                         server: $('#servers').val(),
                         database: $('#databases').val(),
+
                         type: type,
                         key: key,
                         ttl: ttl,
@@ -322,7 +332,7 @@ $(function () {
         var contentHtml = '<div><span class="key">' + key + '</span></div>'
         contentHtml += '<table class="contentTable">' +
             '<tr><td class="titleCell">Type:</td><td colspan="2">' + type + '</td></tr>' +
-            '<tr><td class="titleCell">TTL:</td><td colspan="2">' + ttl + '</td></tr>' +
+            '<tr><td class="titleCell">TTL:</td><td colspan="2" contenteditable="true" id="ttl">' + ttl + '</td></tr>' +
             '<tr><td class="titleCell">Encoding:</td><td colspan="2">' + encoding + '</td></tr>' +
             '<tr><td class="titleCell">Format:</td><td colspan="2">' + format + '</td></tr>' +
             '<tr><td class="titleCell">Size:</td><td colspan="2">' + size + '</td></tr>' +
@@ -330,32 +340,35 @@ $(function () {
 
         switch (type) {
             case "string":
-                contentHtml += '<tr><td colspan="3"><textarea id="code">' + content + '</textarea></td></tr>'
+                contentHtml += '<tr class="newKeyTr string"><td colspan="3"><textarea id="code">' + content + '</textarea></td></tr>'
                 break
             case "hash":
-                contentHtml += '<tr><td class="titleCell">Field</td><td class="titleCell" colspan="2">Value</td></tr>'
-                for (var key in content) {
-                    contentHtml += '<tr><td contenteditable="true">' + key + '</td><td colspan="2" contenteditable="true">' + content[key] + '</td></tr>'
+                contentHtml += '<tr class="newKeyTr hash"><td class="titleCell">Field</td><td class="titleCell" colspan="2">Value</td></tr>'
+                for (var hashKey in content) {
+                    contentHtml += '<tr class="newKeyTr hash"><td contenteditable="true">' + hashKey + '</td><td colspan="2" contenteditable="true">' + content[hashKey] + '</td></tr>'
                 }
                 break
             case "set":
             case "list":
-                contentHtml += '<tr><td class="titleCell">#</td><td class="titleCell" colspan="2">Value</td></tr>'
+                contentHtml += '<tr class="newKeyTr ' + type + '"><td class="titleCell">#</td><td class="titleCell" colspan="2">Value</td></tr>'
                 for (var i = 0; i < content.length; ++i) {
-                    contentHtml += '<tr><td contenteditable="true">' + i + '</td><td colspan="2" contenteditable="true">' + content[i] + '</td></tr>'
+                    contentHtml += '<tr class="newKeyTr ' + type + '"><td contenteditable="true">' + i + '</td><td colspan="2" contenteditable="true">' + content[i] + '</td></tr>'
                 }
                 break
             case "zset":
-                contentHtml += '<tr><td class="titleCell">#</td><td class="titleCell">Score</td><td class="titleCell">Value</td></tr>'
+                contentHtml += '<tr class="newKeyTr zset"><td class="titleCell">#</td><td class="titleCell">Score</td><td class="titleCell">Value</td></tr>'
                 for (var i = 0; i < content.length; ++i) {
-                    contentHtml += '<tr><td contenteditable="true">' + i + '</td><td contenteditable="true">' + content[i].Score + '</td><td>' + content[i].Member + '</td></tr>'
+                    contentHtml += '<tr class="newKeyTr zset"><td contenteditable="true">' + i + '</td><td contenteditable="true">' + content[i].Score + '</td><td>' + content[i].Member + '</td></tr>'
                 }
                 break
-
         }
         contentHtml += '</table>'
+        contentHtml += '<button id="addMoreRowsBtn">Add More Rows</button>'
 
         $('#frame').html(contentHtml)
+        $('#addMoreRowsBtn').toggle(type != "string").click(function () {
+            addMoreRows(type)
+        })
 
         codeMirror = null
         if (format === "JSON") {
@@ -365,7 +378,7 @@ $(function () {
                 matchBrackets: true
             })
         } else {
-            autosize($('#code'));
+            autosize($('#code'))
         }
 
         $('.keyDelete').click(function () {
@@ -394,15 +407,18 @@ $(function () {
 
         $('.valueSave').click(function () {
             if (confirm("Are you sure to save changes for " + key + "?")) {
-                var changedContent = codeMirror != null && codeMirror.getValue() || $('#code').val()
+                var changedContent = extractValue(type)
                 $.ajax({
                     type: 'POST',
                     url: pathname + "/changeContent",
                     data: {
                         server: $('#servers').val(),
                         database: $('#databases').val(),
+
                         key: key,
-                        changedContent: changedContent,
+                        type: type,
+                        ttl: $('#ttl').text(),
+                        value: changedContent,
                         format: format
                     },
                     success: function (content, textStatus, request) {

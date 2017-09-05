@@ -33,33 +33,11 @@ func configGetDatabases(server RedisServer) int {
 	return databaseNum
 }
 
-func changeContent(server RedisServer, key, content, format string) string {
-	client := newRedisClient(server)
-	defer client.Close()
-
-	if format == "UNKNOWN" {
-		content, _ = strconv.Unquote(content)
-	}
-
-	err := client.Set(key, content, 0).Err()
-	if err == nil {
-		return "OK"
-	}
-
-	return err.Error()
-}
-
-func newKey(server RedisServer, keyType, key, ttl, format, val string) string {
+func newKey(server RedisServer, keyType, key, ttl, val string) string {
 	client := newRedisClient(server)
 	defer client.Close()
 
 	var err error
-	if format == "Quoted" {
-		val, err = strconv.Unquote(val)
-		if err != nil {
-			return err.Error()
-		}
-	}
 
 	var duration time.Duration = -1
 	if ttl != "-1s" && ttl != "" {
@@ -69,11 +47,17 @@ func newKey(server RedisServer, keyType, key, ttl, format, val string) string {
 		}
 	}
 
+	client.Del(key)
+
 	switch keyType {
 	case "string":
 		var str string
 		err = json.Unmarshal([]byte(val), &str)
 		if err == nil {
+			val, err = strconv.Unquote(val)
+			if err != nil {
+				return err.Error()
+			}
 			_, err = client.Set(key, str, duration).Result()
 		}
 	case "hash":
