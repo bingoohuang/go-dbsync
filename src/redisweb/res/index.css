@@ -40,7 +40,7 @@ body {
     bottom: 0;
     left: 0;
     width: 290px;
-    height: 100%;
+    overflow: auto;
 }
 
 .titleCell {
@@ -139,13 +139,13 @@ p {
 }
 
 #frame {
+    margin-left: 20px;
     margin-top: 10px;
     position: fixed;
     top: 0;
     left: 305px;
     right: 0;
     bottom: 0;
-    padding-left: 2em;
     overflow: auto;
 }
 
@@ -153,6 +153,11 @@ p {
     font-weight: bold;
     margin-right: 10px;
     display: inline-block;
+}
+
+.key:focus {
+    outline: none;
+    border: 0;
 }
 
 span.sprite {

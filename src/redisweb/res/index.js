@@ -115,6 +115,8 @@ $(function () {
             var contains = text.indexOf(filter) > -1
             $li.toggle(contains)
         })
+
+        $('#sidebar').height(window.outerHeight)
     }
 
     $('#filterKeys').keyup(toggleFilterKeys)
@@ -403,5 +405,47 @@ $(function () {
             }
         })
     }
+
+    var keysFocused = false
+
+    $('#keys').attr('tabindex', -1).focusin(function () {
+        keysFocused = true
+    }).focusout(function () {
+        keysFocused = false
+    })
+
+    $(document).keydown(function (e) {
+        switch (e.which) {
+            case 37: // left
+                break;
+            case 38: // up
+                if (keysFocused) {
+                    $('#keys ul li').each(function (index, li) {
+                        $li = $(li)
+                        if ($li.hasClass('chosen')) {
+                            $li.prev().click()
+                            return false
+                        }
+                    })
+                }
+                break;
+            case 39: // right
+                break;
+            case 40: // down
+                if (keysFocused) {
+                    $('#keys ul li').each(function (index, li) {
+                        $li = $(li)
+                        if ($li.hasClass('chosen')) {
+                            $li.next().click()
+                            return false
+                        }
+                    })
+                }
+                break;
+            default:
+                return; // exit this handler for other keys
+        }
+        e.preventDefault(); // prevent the default action (scroll / move caret)
+    })
 
 })
