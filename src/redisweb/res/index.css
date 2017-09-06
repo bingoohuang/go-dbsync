@@ -155,9 +155,8 @@ p {
     display: inline-block;
 }
 
-.key:focus {
-    outline: none;
-    border: 0;
+#keys:focus {
+    outline: 0px solid transparent;
 }
 
 span.sprite {
