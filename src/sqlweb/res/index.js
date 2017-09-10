@@ -400,9 +400,9 @@
     }
 
     function attachDeleteRowsEvent() {
+        var cssChoser =  '#queryResult' + queryResultId + ' :checked'
         $('#deleteRows' + queryResultId).click(function () {
-            var checkboxes = $('#queryResult' + queryResultId + ' :checked')
-            checkboxes.parents('tr').addClass('deletedRow')
+            $(cssChoser).parents('tr').addClass('deletedRow')
         })
     }
 
