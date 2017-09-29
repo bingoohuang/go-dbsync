@@ -58,33 +58,6 @@ ListenPort = 8181
 启动: `./nohup ./go-blackcat-web-linux ./go-blackcat-web.toml 2>&1 > go-blackcat-web.log  &`
 
 
-# go-ip-allow
-build:`env GOOS=linux GOARCH=amd64 go build -o go-ip-allow.linux.bin src/go-ip-allow.go`<br/>
-config file go-ip-allow.toml:
-
-```toml
-Envs = [ "DEV", "TEST", "DEMO", "PRODUCT" ]
-Mobiles = ["18212345678"]
-MobileTags = ["BINGOO"]
-ListenPort = 8182
-SendCaptcha = "http://127.0.0.1:8020/v1/notify/send-captcha"
-VerifyCaptcha = "http://127.0.0.1:8020/v1/notify/verify-captcha"
-UpdateFirewallShell = "/home/ci/firewall/iphelp.sh"
-```
-bash scripts:
-```bash
-export http_proxy=http://127.0.0.1:9999
-export https_proxy=http://127.0.0.1:9999
-go get -v -u github.com/BurntSushi/toml
-go get -v -u gopkg.in/kataras/iris.v6
-```
-fish scripts:
-```fish
-set -x http_proxy http://127.0.0.1:9999
-set -x https_proxy http://127.0.0.1:9999
-go get -v -u github.com/BurntSushi/toml
-go get -v -u gopkg.in/kataras/iris.v6
-```
 
 # go-tail-web
 build:<p>`env GOOS=linux GOARCH=amd64 go build -o go-tail-web.linux.bin src/tailweb/go-tail-web.go`</p>
@@ -102,13 +75,4 @@ run:<p>`nohup ./go-log-server.linux.bin  -port=10811 > go-log-server.out 2>&1 &`
 All the logs collected from go-log-client will append to related log files with specified naming, like et.log, ab.log and etc.
 
 ![image](https://user-images.githubusercontent.com/1940588/28238816-9745199c-698e-11e7-8ed5-f925130a0826.png)
-
-# go sql web
-1. install go-bindata: `go get -u -v github.com/jteeuwen/go-bindata/...`
-2. install goimports: `go get -u -v golang.org/x/tools/cmd/goimports`
-3. build: `env GOOS=linux GOARCH=amd64 go build -o go-sql-web.linux.bin`
-4. run: `./sqlweb -dataSource="user:pass@tcp(ip:3306)/db?charset=utf8" -cookieName=customizedCookieName -key=size16encryptKey -corpId=wx_corpId -corpSecret=wx_secret -agentId=wx_agentId -redirectUri=redirectUri`
-
-# go redis web
-try to implement redis web in go like [phpRedisAdmin](https://github.com/erikdubbelboer/phpRedisAdmin).
 
