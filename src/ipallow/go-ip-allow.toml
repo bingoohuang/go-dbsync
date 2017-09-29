@@ -1,7 +1,10 @@
-Envs = [ "DEV", "TEST", "DEMO", "PRODUCT" ]
-Mobiles = ["18212345678"]
-MobileTags = ["BINGOO"]
+ContextPath = ""
 ListenPort = 8182
-SendCaptcha = "http://127.0.0.1:8020/v1/notify/send-captcha"
-VerifyCaptcha = "http://127.0.0.1:8020/v1/notify/verify-captcha"
+WxCorpId = "BC14DCED-9960-4CE2-B186-AE0869029FD1"
+WxCorpSecret  = "5D4E6B46-9E99-423A"
+WxAgentId = 1000003
+Envs = [ "DEV", "TEST", "DEMO", "PRODUCT" ]
 UpdateFirewallShell = "/home/ci/firewall/iphelp.sh"
+CookieName = "ip-allow"
+RedirectUri = "http://www.baidu.com"
+EncryptKey = "BD04C2CC8433E4AC"
